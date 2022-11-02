@@ -266,7 +266,7 @@ void SupHD::readAllSupFrames()
             subPictures.push_back(pic);
         }
     }
-    catch (QString e)
+    catch (QString &e)
     {
         if (subPictures.size() == 0)
         {
@@ -435,8 +435,8 @@ Bitmap SupHD::decodeImage(SubPictureHD &subPicture, int transparentIndex)
         throw QString("Corrupt buffer offset information");
     }
 
-    QVector<uchar> evenBuf = QVector<uchar>(sizeEven);
-    QVector<uchar> oddBuf  = QVector<uchar>(sizeOdd);
+    QList<uchar> evenBuf = QList<uchar>(sizeEven);
+    QList<uchar> oddBuf  = QList<uchar>(sizeOdd);
 
     for (int i = 0; i < evenBuf.size(); i++)
     {

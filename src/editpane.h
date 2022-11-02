@@ -36,11 +36,11 @@ public:
     void setDimension(int width, int height) { this->width = width; this->height = height; }
     void setOffsets(int x, int y);
     void setCropOfsY(int ofs) { cropOfsY = ofs; }
-    void setImage(QImage image, int width, int height);
+    void setImage(const QImage &image, int width, int height);
     void setExcluded(bool excluded) { this->excluded = excluded; }
     void setAllowSelection(bool value) { allowSelection = value; }
     void setIsLabel(bool value) { isLabel = value; }
-    QVector<int> getSelection();
+    QList<int> getSelection();
     void removeSelection() { if (allowSelection && validSelection) { validSelection = false; } }
     void setScreenRatio(double ratio) { screenRatioIn = ratio; cineBarFactor = (1.0 - (screenRatio / screenRatioIn)) / 2.0; }
 

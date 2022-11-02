@@ -26,10 +26,15 @@
 
 #include <QObject>
 #include <QFile>
-#include <QtXml/QXmlDefaultHandler>
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+#include <QXmlDefaultHandler>
+#else
+#include <QXmlStreamReader>
+#include <QXmlStreamAttributes>
+#endif
 #include <QStringList>
 #include <QString>
-#include <QVector>
+#include <QList>
 #include <QScopedPointer>
 
 class SubtitleProcessor;
@@ -44,14 +49,22 @@ class SupXML : public QObject, public Substream
 {
     Q_OBJECT
 
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     class XmlHandler : public QXmlDefaultHandler
+#else
+    class XmlHandler : public QXmlStreamReader
+#endif
     {
     public:
         XmlHandler(SupXML* parent) { this->parent = parent; }
 
         bool characters(const QString &ch);
         bool endElement(const QString &namespaceURI, const QString &localName, const QString &qName);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         bool startElement(const QString &namespaceURI, const QString &localName, const QString &qName, const QXmlAttributes &atts);
+#else
+        bool startElement(const QString &namespaceURI, const QString &localName, const QString &qName, const QXmlStreamAttributes &atts);
+#endif
 
     private:
 
@@ -61,11 +74,11 @@ class SupXML : public QObject, public Substream
 
         QString txt;
 
-        QVector<int> getResolutions(Resolution resolution);
+        QList<int> getResolutions(Resolution resolution);
 
         Resolution getResolution (QString string);
 
-        SubPictureXML *subPicture;
+        SubPictureXML *subPicture = nullptr;
 
         SupXML* parent;
 
@@ -81,7 +94,7 @@ public:
 
     void decode(int index);
     void readAllImages();
-    void writeXml(QString filename, QVector<SubPicture*> pics);
+    void writeXml(QString filename, QList<SubPicture*> pics);
 
     int primaryColorIndex() { return _primaryColorIndex; }
     int numFrames();
@@ -89,7 +102,7 @@ public:
 
     qint64 endTime(int index);
     qint64 startTime(int index);
-    qint64 startOffset(int index) { return 0; }
+    qint64 startOffset(int /*index*/) { return 0; }
 
     double getFps() { return fps; }
 
@@ -128,7 +141,7 @@ private:
     QString language = "deu";
     QString xmlFileName;
 
-    QVector<SubPictureXML> subPictures;
+    QList<SubPictureXML> subPictures;
 
     Resolution resolution;
 

@@ -87,7 +87,7 @@ SubPicture* SubPicture::copy()
     sp->_imageWidth = _imageWidth;
     sp->_imageHeight = _imageHeight;
     sp->xOfs = xOfs;
-    sp->yOfs = xOfs;
+    sp->yOfs = yOfs;
     sp->excluded = excluded;
     sp->decoded = decoded;
     sp->scaledImageRects = scaledImageRects;

@@ -27,8 +27,12 @@
 #include "types.h"
 #include <QImage>
 #include <QFileInfo>
-#include <QtXml/QXmlSimpleReader>
-#include <QtXml/QXmlInputSource>
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+#include <QXmlSimpleReader>
+#include <QXmlInputSource>
+#else
+#include <QXmlStreamReader>
+#endif
 #include <QRect>
 #include <QDir>
 #include <QPainter>
@@ -65,8 +69,8 @@ QImage SupXML::image(Bitmap &bitmap)
 
 void SupXML::decode(int index)
 {
-    QVector<Bitmap> bitmaps;
-    QVector<Palette> palettes;
+    QList<Bitmap> bitmaps;
+    QList<Palette> palettes;
     SubPictureXML &subPic = subPictures[index];
     for (int i = 0; i < subPic.fileNames().size(); ++i)
     {
@@ -84,7 +88,7 @@ void SupXML::decode(int index)
         // first try to read image and palette directly from imported image
         if (image.format() == QImage::Format_Indexed8)
         {
-            QVector<QRgb> colorTable = image.colorTable();
+            QList<QRgb> colorTable = image.colorTable();
             if (colorTable.size() <= 255 || (image.hasAlphaChannel() && qAlpha(colorTable[255]) == 0))
             {
                 // create palette
@@ -111,7 +115,7 @@ void SupXML::decode(int index)
             // quantize image
             QuantizeFilter qf;
             bitmap = Bitmap(image.width(), image.height());
-            QVector<QRgb> ct = qf.quantize(image, &bitmap.image(), width, height, 255, false, false);
+            QList<QRgb> ct = qf.quantize(image, &bitmap.image(), width, height, 255, false, false);
             int size = ct.size();
             if (size > 255)
             {
@@ -145,7 +149,7 @@ void SupXML::decode(int index)
     }
     else
     {
-        QMap<int, QRect> &imageRects = subPic.imageSizes();
+        const QList<QRect> &imageRects = subPic.imageSizes().values();
         int resultXOffset = imageRects[0].x() > imageRects[1].x() ? imageRects[1].x() : imageRects[0].x();
         int resultYOffset = imageRects[0].y() > imageRects[1].y() ? imageRects[1].y() : imageRects[0].y();
         int width = 0, height = 0;
@@ -195,31 +199,32 @@ void SupXML::decode(int index)
         {
             height = 2;
         }
+
         _bitmap = _bitmap.crop(bounds.topLeft().x(), bounds.topLeft().y(), width, height);
         QMap<int, QRect> &imageRects = subPic.imageSizes();
         QMap<int, QRect> &windowRects = subPic.windowSizes();
 
-        int newX = subPic.x() - (subPic.originalX() + bounds.topLeft().x());
-        int newY = subPic.y() - (subPic.originalY() + bounds.topLeft().y());
+        int xOffset = abs(subPic.x() - (subPic.originalX() + bounds.topLeft().x()));
+        int yOffset = abs(subPic.y() - (subPic.originalY() + bounds.topLeft().y()));
         double widthScale = (double) width / subPic.imageWidth();
         double heightScale = (double) height / subPic.imageHeight();
 
         // update picture
-        for (int i = 0; i < imageRects.size(); ++i)
+        for (QRect imageRect : imageRects)
         {
-            imageRects[i].setX(imageRects[i].x() + newX);
-            imageRects[i].setY(imageRects[i].y() + newY);
-            imageRects[i].setWidth((int) ((imageRects[i].width() * widthScale) + .5));
-            imageRects[i].setHeight((int) ((imageRects[i].height() * heightScale) + .5));
+            imageRect.setX(imageRect.x() + xOffset);
+            imageRect.setY(imageRect.y() + yOffset);
+            imageRect.setWidth((int) ((imageRect.width() * widthScale) + .5));
+            imageRect.setHeight((int) ((imageRect.height() * heightScale) + .5));
         }
 
         // update picture
-        for (int i = 0; i < windowRects.size(); ++i)
+        for (QRect windowRect : windowRects)
         {
-            windowRects[i].setX(windowRects[i].x() + newX);
-            windowRects[i].setY(windowRects[i].y() + newY);
-            windowRects[i].setWidth((int) ((windowRects[i].width() * widthScale) + .5));
-            windowRects[i].setHeight((int) ((windowRects[i].height() * heightScale) + .5));
+            windowRect.setX(windowRect.x() + xOffset);
+            windowRect.setY(windowRect.y() + yOffset);
+            windowRect.setWidth((int) ((windowRect.width() * widthScale) + .5));
+            windowRect.setHeight((int) ((windowRect.height() * heightScale) + .5));
         }
     }
 }
@@ -251,6 +256,7 @@ SubPicture *SupXML::subPicture(int index)
 
 void SupXML::readAllImages()
 {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QXmlSimpleReader xmlReader;
     QXmlInputSource *source = new QXmlInputSource(xmlFile.data());
 
@@ -262,7 +268,16 @@ void SupXML::readAllImages()
     {
         throw QString("Failed to parse file: '%1'").arg(xmlFileName);
     }
+#else
+  QXmlStreamReader reader(xmlFile.data());
 
+  while (!reader.atEnd()) {
+      reader.readNext();
+  }
+  if (reader.hasError()) {
+      throw QString("Failed to parse file: '%1'").arg(xmlFileName);
+  }
+#endif
     subtitleProcessor->print(QString("\nDetected %1 forced captions.\n").arg(QString::number(_numForcedFrames)));
 }
 
@@ -272,7 +287,7 @@ QString SupXML::getPNGname(QString filename, int idx)
     return QString("%1/%2_%3.png").arg(info.absolutePath()).arg(info.completeBaseName()).arg(QString::number(idx), 4, QChar('0'));
 }
 
-void SupXML::writeXml(QString filename, QVector<SubPicture*> pics)
+void SupXML::writeXml(QString filename, QList<SubPicture*> pics)
 {
     double fps = subtitleProcessor->getFPSTrg();
     double fpsXml = XmlFps(fps);
@@ -332,17 +347,18 @@ void SupXML::writeXml(QString filename, QVector<SubPicture*> pics)
             numberOfImages = imageRects.size();
         }
 
-        for (int j = 0; j < numberOfImages; ++j)
+        int num_pic = 0;
+        for (QRect imageRect : imageRects)
         {
             QFileInfo info(pname);
             out->write((QString("      <Graphic Width=\"%1\" Height=\"%2\" X=\"%3\" Y=\"%4\">%5</Graphic>\n")
-                        .arg(QString::number(imageRects[j].width()))
-                        .arg(QString::number(imageRects[j].height()))
-                        .arg(QString::number(imageRects[j].x()))
-                        .arg(QString::number(imageRects[j].y()))
+                        .arg(QString::number(imageRect.width()))
+                        .arg(QString::number(imageRect.height()))
+                        .arg(QString::number(imageRect.x()))
+                        .arg(QString::number(imageRect.y()))
                         .arg(QString("%1_%2.png")
                              .arg(info.completeBaseName())
-                             .arg(QString::number(j))))
+                             .arg(QString::number(num_pic++))))
                        .toLatin1());
         }
         out->write("    </Event>\n");
@@ -380,7 +396,7 @@ bool SupXML::XmlHandler::characters(const QString &ch)
 }
 
 
-bool SupXML::XmlHandler::endElement(const QString &namespaceURI, const QString &localName, const QString &qName)
+bool SupXML::XmlHandler::endElement(const QString &/*namespaceURI*/, const QString &/*localName*/, const QString &qName)
 {
     XmlState endState = findState(qName.toLower());
     if (state == XmlState::GRAPHIC && endState == XmlState::GRAPHIC)
@@ -390,8 +406,13 @@ bool SupXML::XmlHandler::endElement(const QString &namespaceURI, const QString &
     return true;
 }
 
-bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString &localName,
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+bool SupXML::XmlHandler::startElement(const QString &/*namespaceURI*/, const QString &/*localName*/,
                                       const QString &qName, const QXmlAttributes &atts)
+#else
+bool SupXML::XmlHandler::startElement(const QString &/*namespaceURI*/, const QString &/*localName*/,
+                                      const QString &qName, const QXmlStreamAttributes &atts)
+#endif
 {
     state = findState(qName.toLower());
     QString at;
@@ -401,7 +422,7 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
         parent->subtitleProcessor->printError("BDN tag missing\n");
     }
 
-    txt = QString("");
+    txt.clear();
 
     switch ((int)state)
     {
@@ -422,7 +443,11 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
     } break;
     case (int)SupXML::XmlHandler::XmlState::NAME:
     {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("Title");
+#else
+        at = atts.value("Title").toString();
+#endif
         if (!at.isEmpty())
         {
             parent->title = at;
@@ -431,7 +456,11 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
     } break;
     case (int)SupXML::XmlHandler::XmlState::LANGUAGE:
     {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("Code");
+#else
+        at = atts.value("Code").toString();
+#endif
         if (!at.isEmpty())
         {
             parent->language = at;
@@ -440,14 +469,22 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
     } break;
     case (int)SupXML::XmlHandler::XmlState::FORMAT:
     {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("FrameRate");
+#else
+        at = atts.value("FrameRate").toString();
+#endif
         if (!at.isEmpty())
         {
             parent->fps = parent->subtitleProcessor->getFPS(at);
             parent->fpsXml = parent->XmlFps(parent->fps);
             parent->subtitleProcessor->print(QString("fps: %1\n").arg(QString::number(parent->fps, 'g', 6)));
         }
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("VideoFormat");
+#else
+        at = atts.value("VideoFormat").toString();
+#endif
         if (!at.isEmpty())
         {
             QString res = QString(at);
@@ -461,7 +498,12 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
     } break;
     case (int)SupXML::XmlHandler::XmlState::EVENTS:
     {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("NumberofEvents");
+#else
+        at = atts.value("NumberofEvents").toString();
+#endif
+
         if (!at.isEmpty())
         {
             bool ok;
@@ -487,8 +529,11 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
         parent->subtitleProcessor->printX(QString("#%1\n").arg(QString::number(num)));
 
         emit parent->currentProgressChanged(num);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("InTC");
-
+#else
+        at = atts.value("InTC").toString();
+#endif
         if (!at.isEmpty())
         {
             subPicture->setStartTime(TimeUtil::timeStrXmlToPTS(at, parent->fpsXml));
@@ -498,7 +543,11 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
                 parent->subtitleProcessor->printWarning(QString("Invalid start time %1\n").arg(at));
             }
         }
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("OutTC");
+#else
+        at = atts.value("OutTC").toString();
+#endif
         if (!at.isEmpty())
         {
             subPicture->setEndTime(TimeUtil::timeStrXmlToPTS(at, parent->fpsXml));
@@ -513,7 +562,11 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
             subPicture->setStartTime(((subPicture->startTime() * 1001) + 500) / 1000);
             subPicture->setEndTime(((subPicture->endTime() * 1001) + 500) / 1000);
         }
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         at = atts.value("Forced");
+#else
+        at = atts.value("Forced").toString();
+#endif
         if (!at.isEmpty())
         {
             subPicture->setForced(at.toLower() == "true");
@@ -526,7 +579,7 @@ bool SupXML::XmlHandler::startElement(const QString &namespaceURI, const QString
         {
             parent->_numForcedFrames++;
         }
-        QVector<int> dim = parent->subtitleProcessor->getResolutions(parent->resolution);
+        QList<int> dim = parent->subtitleProcessor->getResolutions(parent->resolution);
         subPicture->setScreenWidth(dim.at(0));
         subPicture->setScreenHeight(dim.at(1));
     } break;

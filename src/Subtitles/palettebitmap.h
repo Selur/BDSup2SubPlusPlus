@@ -28,7 +28,6 @@ class PaletteBitmap
 public:
     PaletteBitmap();
     PaletteBitmap(Bitmap &inBitmap, Palette &inPalette);
-    PaletteBitmap(PaletteBitmap &inBitmap);
     ~PaletteBitmap();
 
     Bitmap bitmap;

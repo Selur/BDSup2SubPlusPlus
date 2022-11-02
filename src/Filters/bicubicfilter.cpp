@@ -22,7 +22,7 @@
 
 float BiCubicFilter::value(float value)
 {
-    if (!value)
+    if (value == 0.0f)
     {
         return 1.0f;
     }

@@ -76,7 +76,7 @@ void EditPane::mouseMoveEvent(QMouseEvent *event)
     }
 }
 
-void EditPane::paintEvent(QPaintEvent *event)
+void EditPane::paintEvent(QPaintEvent * /*event*/)
 {
     int w, h;
     int x1, y1, rectWidth, rectHeight;
@@ -214,7 +214,7 @@ void EditPane::setOffsets(int x, int y)
     }
 }
 
-void EditPane::setImage(QImage image, int width, int height)
+void EditPane::setImage(const QImage &image, int width, int height)
 {
     img = image;
     imgWidth = width;
@@ -222,9 +222,9 @@ void EditPane::setImage(QImage image, int width, int height)
     update();
 }
 
-QVector<int> EditPane::getSelection()
+QList<int> EditPane::getSelection()
 {
-    QVector<int> selectionCoordinates;
+    QList<int> selectionCoordinates;
     if (!allowSelection || !validSelection)
     {
         return selectionCoordinates;

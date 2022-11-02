@@ -30,7 +30,7 @@
 class QPalette;
 class SubtitleProcessor;
 class QDoubleValidator;
-class QRegExpValidator;
+class QRegularExpressionValidator;
 class QSettings;
 
 enum class Resolution : int;
@@ -43,7 +43,7 @@ class ConversionDialog;
 class ConversionDialog : public QDialog
 {
     Q_OBJECT
-    
+
 public:
     explicit ConversionDialog(QWidget *parent = 0, SubtitleProcessor *subtitleProcessor = 0, QSettings* settings = 0);
     ~ConversionDialog();
@@ -52,7 +52,7 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent *event);
-    
+
 private slots:
     void on_okButton_clicked();
     void on_cancelButton_clicked();
@@ -87,8 +87,8 @@ private:
     Ui::ConversionDialog *ui;
     SubtitleProcessor *subtitleProcessor;
 
-    QRegExpValidator* fpsSrcValidator;
-    QRegExpValidator* fpsTrgValidator;
+    QRegularExpressionValidator* fpsSrcValidator;
+    QRegularExpressionValidator* fpsTrgValidator;
     QDoubleValidator* scaleXValidator;
     QDoubleValidator* scaleYValidator;
     QDoubleValidator* delayPTSValidator;

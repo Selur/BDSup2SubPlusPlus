@@ -22,11 +22,11 @@
 
 #include <QString>
 #include <QStringList>
-#include <QVector>
+#include <QList>
 #include <QColor>
 
 const QString progName = "BDSup2Sub++";
-const QString progNameVer = progName + " 1.0.2";
+const QString progNameVer = progName + " 1.0.3";
 const QString authorDate = "0xdeadbeef, mjuhasz, Adam T.";
 const QString oldIniName = "bdsup2sub.ini";
 const QString iniName = "bdsup2sub++.ini";
@@ -43,28 +43,28 @@ const QStringList paletteModeNames = {
 
 const QStringList modes = { "SUB/IDX", "SUP/IFO", "SUP(BD)", "XML/PNG"};
 
-const QVector<uchar> defaultPalR = {
+const QList<uchar> defaultPalR = {
     0x00, 0xf0, 0xcc, 0x99,
     0x33, 0x11, 0xfa, 0xbb,
     0x33, 0x11, 0xfa, 0xbb,
     0xfa, 0xbb, 0x33, 0x11
 };
 
-const QVector<uchar> defaultPalG = {
+const QList<uchar> defaultPalG = {
     0x00, 0xf0, 0xcc, 0x99,
     0x33, 0x11, 0x33, 0x11,
     0xfa, 0xbb, 0xfa, 0xbb,
     0x33, 0x11, 0xfa, 0xbb
 };
 
-const QVector<uchar> defaultPalB = {
+const QList<uchar> defaultPalB = {
     0x00, 0xf0, 0xcc, 0x99,
     0xfa, 0xbb, 0x33, 0x11,
     0x33, 0x11, 0x33, 0x11,
     0xfa, 0xbb, 0xfa, 0xbb
 };
 
-const QVector<uchar> defaultAlpha = {
+const QList<uchar> defaultAlpha = {
     0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00,

@@ -21,13 +21,13 @@
 #include <cmath>
 
 Lanczos3Filter::Lanczos3Filter() :
-    PI_FLOAT(std::atan(1.0) * 4)
+    PI_FLOAT(std::atan(1.0f) * 4)
 {
 }
 
 float Lanczos3Filter::value(float value)
 {
-    if (!value)
+    if (value == 0.0f)
     {
         return 1.0f;
     }
@@ -36,7 +36,7 @@ float Lanczos3Filter::value(float value)
     if (value < 3.0f)
     {
         value *= PI_FLOAT;
-        double value_divided_by_3 = value / 3.0f;
+        float value_divided_by_3 = value / 3.0f;
         return (std::sin(value) / value) * (std::sin(value_divided_by_3) / value_divided_by_3);
     }
     return 0.0f;

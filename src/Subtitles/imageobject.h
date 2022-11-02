@@ -22,7 +22,7 @@
 
 #include "imageobjectfragment.h"
 
-#include <QVector>
+#include <QList>
 
 class ImageObject
 {
@@ -66,7 +66,7 @@ public:
     int objectVersion() { return objVer; }
     void setObjectVersion(int objectVersion) { objVer = objectVersion; }
 
-    QVector<ImageObjectFragment> &fragmentList() { return fragments; }
+    QList<ImageObjectFragment> &fragmentList() { return fragments; }
 
 private:
     int paletteId = -1;
@@ -77,12 +77,12 @@ private:
     int yOfs = 0;
     int windowId = -1;
     bool forced = false;
-    int _forcedFlags;
+    int _forcedFlags = 0;
     int objectId = -1;
     int objVer = 0;
     int objSeq = 0;
 
-    QVector<ImageObjectFragment> fragments;
+    QList<ImageObjectFragment> fragments;
 };
 
 #endif // IMAGEOBJECT_H

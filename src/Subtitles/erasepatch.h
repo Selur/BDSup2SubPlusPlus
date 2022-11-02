@@ -38,10 +38,10 @@ public:
     void setHeight(int height) { h = height; }
 
 private:
-    int x1;
-    int y1;
-    int w;
-    int h;
+    int x1 = 0;
+    int y1 = 0;
+    int w = 0;
+    int h = 0;
 };
 
 #endif // ERASEPATCH_H

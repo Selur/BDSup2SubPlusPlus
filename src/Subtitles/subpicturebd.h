@@ -25,7 +25,7 @@
 #include "paletteinfo.h"
 #include "../types.h"
 
-#include <QVector>
+#include <QList>
 #include <QMap>
 
 class ImageObject;
@@ -39,10 +39,10 @@ struct PCS
     int frameRate;
     int compositionNumber;
     CompositionState compositionState;
-    bool paletteUpdate;
+    bool paletteUpdate = false;
     int paletteId;
     int numberOfCompositionObjects;
-    QVector<int> objectIds;
+    QList<int> objectIds;
     QMap<int, int> windowIds;       // map of object id to window id
     QMap<int, int> forcedFlags;     // map of object id to forced flag
     QMap<int, int> xPositions;      // map of object id to x position
@@ -52,15 +52,15 @@ struct PCS
 struct WDS
 {
     int numberOfWindows;
-    QVector<int> windowIds;
+    QList<int> windowIds;
     QMap<int, QRect> windows;
 };
 
 struct PDS
 {
-    int paletteId;
-    int paletteVersion;
-    int paletteSize;
+    int paletteId = -1;
+    int paletteVersion = -1;
+    int paletteSize = -1;
     PaletteInfo paletteInfo;
 };
 
@@ -172,25 +172,25 @@ public:
     {
         for (int i = 0; i < imageObjectList.size(); ++i)
         {
-            if (imageObjectList[i].fragmentList().size() > 0)
+            if (!imageObjectList[i].fragmentList().empty())
             {
-                imageObjectList[i].setForcedFlags(imageObjectList[i].forcedFlags() | 0x40);
+                imageObjectList[i].setForcedFlags(isForced ? 0x40 : 0);
                 forcedFlags[i] = imageObjectList[i].forcedFlags();
             }
         }
     }
 
-    void setData(PCS pcs, QMap<int, QVector<ODS>> ods, QMap<int, QVector<PaletteInfo>> pds, WDS wds);
+    void setData(const PCS &pcs, QMap<int, QList<ODS>> ods, QMap<int, QList<PaletteInfo>> pds, const WDS &wds);
 
     QMap<int, ImageObject> imageObjectList;
 
-    QMap<int, QVector<PaletteInfo>> palettes;
+    QMap<int, QList<PaletteInfo>> palettes;
 
 private:
     int type = 0;
-    bool paletteUpdate;
+    bool paletteUpdate = false;
     CompositionState compState;
-    int paletteID;
+    int paletteID = -1;
 };
 
 #endif // SUBSPICTUREBD_H

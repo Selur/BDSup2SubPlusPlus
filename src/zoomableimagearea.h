@@ -32,7 +32,7 @@ class ZoomableImageArea : public QLabel
     Q_OBJECT
 public:
     explicit ZoomableImageArea(QWidget *parent = 0);
-    void setImage(QImage image);
+    void setImage(const QImage &inImage);
     void updateImage();
 
 protected:

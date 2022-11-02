@@ -55,6 +55,9 @@ public:
 
     virtual QImage image() = 0;
     virtual QImage image(Bitmap &bitmap) = 0;
+    
+    void incrementForcedFrames() { ++_numForcedFrames; }
+    void decrementForcedFrames() { --_numForcedFrames; }
 
 protected:
     int _numForcedFrames = 0;

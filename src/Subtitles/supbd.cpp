@@ -114,8 +114,8 @@ void SupBD::readAllSupFrames()
     int bufsize = (int)fileBuffer->getSize();
     SupSegment segment;
     SubPictureBD pic;
-    QMap<int, QVector<PaletteInfo>> palettes;
-    QMap<int, QVector<ODS>> imageObjects;
+    QMap<int, QList<PaletteInfo>> palettes;
+    QMap<int, QList<ODS>> imageObjects;
     int subCount = 0;
     bool forceFirstOds = true;
     ODS ods;
@@ -147,7 +147,7 @@ void SupBD::readAllSupFrames()
                     out = QString("PDS ofs:0x%1, size:0x%2").arg(QString::number(index, 16), 8, QChar('0'))
                                                             .arg(QString::number(segment.size, 16), 4, QChar('0'));
 
-                    so = QString("");
+                    so.clear();
                     pds = parsePDS(&segment, so);
 
                     if (pds.paletteSize >= 0)
@@ -165,7 +165,7 @@ void SupBD::readAllSupFrames()
                     {
                         if (!palettes.contains(pds.paletteId))
                         {
-                            palettes[palId] = QVector<PaletteInfo>();
+                            palettes[palId] = QList<PaletteInfo>();
                         }
                         else
                         {
@@ -191,7 +191,7 @@ void SupBD::readAllSupFrames()
                     out = QString("ODS ofs:0x%1, size:0x%2").arg(QString::number(index, 16), 8, QChar('0'))
                                                             .arg(QString::number(segment.size, 16), 4, QChar('0'));
 
-                    so = QString("");
+                    so.clear();
                     bool isFirst = true;
                     ods = parseODS(&segment, so, forceFirstOds, isFirst);
 
@@ -199,7 +199,7 @@ void SupBD::readAllSupFrames()
                     {
                         if (isFirst)
                         {
-                            imageObjects[ods.objectId] = QVector<ODS> { ods };
+                            imageObjects[ods.objectId] = QList<ODS> { ods };
                             subtitleProcessor->print(QString("%1, img size: %2*%3\n")
                                                      .arg(out)
                                                      .arg(QString::number(ods.width))
@@ -247,7 +247,7 @@ void SupBD::readAllSupFrames()
 
                 forceFirstOds = true;
 
-                so = QString("");
+                so.clear();
                 pcs = parsePCS(&segment, so);
 
 
@@ -319,7 +319,11 @@ void SupBD::readAllSupFrames()
                 {
                     pic.setData(pcs, imageObjects, palettes, wds);
 
-                    if (pic.numCompObjects() != 0)
+                    if (pic.numCompObjects() != 0
+                       && !subPictures.isEmpty()
+                       && (pic.compNum() != subPictures.back().compNum())
+                       && !imagesAreMergeable(pic, subPictures.back())
+                       )
                     {
                         subtitleProcessor->printX(QString("#< %1 (%2)\n")
                                                   .arg(QString::number(++subCount))
@@ -343,7 +347,7 @@ void SupBD::readAllSupFrames()
             index += segment.size;
         }
     }
-    catch (QString e)
+    catch (QString &e)
     {
         if (subPictures.size() == 0)
         {
@@ -392,6 +396,16 @@ void SupBD::readAllSupFrames()
         }
     }
 
+    for (int i = subPictures.size() - 1; i > 0; --i)
+    {
+        if (imagesAreMergeable(subPictures[i], subPictures[i - 1]))
+        {
+            subtitleProcessor->printX(QString("#< caption %1 merged with caption %2\n").arg(QString::number(i)).arg(QString::number(i-1)));
+            subPictures[i - 1].setEndTime(subPictures.value(i).endTime());
+            subPictures.remove(i);
+        }
+    }
+
     emit currentProgressChanged(bufsize);
     // count forced frames
     _numForcedFrames = 0;
@@ -407,7 +421,41 @@ void SupBD::readAllSupFrames()
                               .arg(QString::number(_numForcedFrames)));
 }
 
-QVector<uchar> SupBD::encodeImage(Bitmap &bm)
+bool SupBD::imagesAreMergeable(SubPictureBD &currentSub, SubPictureBD &prevSub)
+{
+    if (std::abs(prevSub.endTime() - currentSub.startTime()) < 10 && prevSub.imageWidth() == currentSub.imageWidth() && prevSub.imageHeight() == currentSub.imageHeight())
+    {
+        if (!currentSub.imageObjectList.empty() && !currentSub.imageObjectList[0].fragmentList().empty() &&
+            !prevSub.imageObjectList.empty() && !prevSub.imageObjectList[0].fragmentList().empty())
+        {
+            QList<uchar> curImageBuf, prevImageBuf;
+            for (auto imageObject : currentSub.imageObjectList)
+            {
+                curImageBuf = QList<uchar>(imageObject.bufferSize());
+                int index = 0;
+                for (auto fragment : imageObject.fragmentList())
+                {
+                    fileBuffer->getBytes(fragment.imageBufferOffset(), curImageBuf.data() + index, fragment.imagePacketSize());
+                    index += fragment.imagePacketSize();
+                }
+            }
+            for (auto imageObject : prevSub.imageObjectList)
+            {
+                prevImageBuf = QList<uchar>(imageObject.bufferSize());
+                int index = 0;
+                for (auto fragment : imageObject.fragmentList())
+                {
+                    fileBuffer->getBytes(fragment.imageBufferOffset(), prevImageBuf.data() + index, fragment.imagePacketSize());
+                    index += fragment.imagePacketSize();
+                }
+            }
+            return curImageBuf == prevImageBuf;
+        }
+    }
+    return false;
+}
+
+QList<uchar> SupBD::encodeImage(Bitmap &bm)
 {
     uchar color;
     int ofs;
@@ -420,7 +468,7 @@ QVector<uchar> SupBD::encodeImage(Bitmap &bm)
     const uchar* pixels = bm.image().constScanLine(0);
     int sourcePitch = bm.image().bytesPerLine();
 
-    QVector<uchar> bytes;
+    QList<uchar> bytes;
     bytes.reserve(height * sourcePitch);
 
     for (int y = 0; y < height; ++y)
@@ -508,7 +556,7 @@ int SupBD::getFpsId(double fps)
     return 0x10;
 }
 
-QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette &pal, bool forcedOnly)
+QList<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette &pal, bool forcedOnly)
 {
     // the last palette entry must be transparent
     if (pal.size() > 255 && pal.alpha(255) > 0)
@@ -516,7 +564,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
         // quantize image
         QuantizeFilter qf;
         Bitmap bmQ(bm.width(), bm.height());
-        QVector<QRgb> ct = qf.quantize(bm.toARGB(pal), &bmQ.image(), bm.width(), bm.height(), 255, false, false);
+        QList<QRgb> ct = qf.quantize(bm.toARGB(pal), &bmQ.image(), bm.width(), bm.height(), 255, false, false);
         int size = ct.size();
 
         subtitleProcessor->print(QString("Palette had to be reduced from %1 to %2 entries.\n")
@@ -553,7 +601,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
         }
     }
 
-    QVector<QVector<uchar>> rleBuf;
+    QList<QList<uchar>> rleBuf;
     int rleBufSize = 0;
 
     QMap<int, QRect> imageSizes;
@@ -581,7 +629,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
         numberOfWindows = subPicture->numberOfWindows();
     }
 
-    QVector<Bitmap> bitmaps;
+    QList<Bitmap> bitmaps;
     int xOffset1 = 0, xOffset2 = 0, yOffset1 = 0, yOffset2 = 0;
 
     if (numberOfImageObjects == 1)
@@ -621,7 +669,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
         bitmaps.push_back(bm.crop(xOffset2, yOffset2, imageSizes[1].width(), imageSizes[1].height()));
     }
 
-    QVector<int> forcedFlags;
+    QList<int> forcedFlags;
 
     if (forcedOnly)
     {
@@ -651,7 +699,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
 
     for (int i = 0; i < bitmaps.size(); ++i)
     {
-        QVector<uchar> buf = encodeImage(bitmaps[i]);
+        QList<uchar> buf = encodeImage(bitmaps[i]);
         rleBufSize += buf.size();
         rleBuf.push_back(buf);
     }
@@ -689,7 +737,7 @@ QVector<uchar> SupBD::createSupFrame(SubPicture *subPicture, Bitmap &bm, Palette
 
     int h = subPicture->screenHeight() - (2 * subtitleProcessor->getCropOfsY());
 
-    QVector<uchar> buf(size);
+    QList<uchar> buf(size);
     int index = 0;
 
     int fpsId = getFpsId(subtitleProcessor->getFPSTrg());
@@ -1053,9 +1101,9 @@ ODS SupBD::parseODS(SupSegment *segment, QString &msg, bool forceFirst, bool &is
 
         msg = QString("ID: %1, update: %2, seq: %3%4%5").arg(QString::number(objID))
                                                         .arg(QString::number(objVer))
-                                                        .arg(isFirst ? QString("first") : QString(""))
-                                                        .arg((isFirst && last) ? QString("/") : QString(""))
-                                                        .arg(last ? QString("last") : QString(""));
+                                                        .arg(isFirst ? QString("first") : QString())
+                                                        .arg((isFirst && last) ? QString("/") : QString())
+                                                        .arg(last ? QString("last") : QString());
     }
     else
     {
@@ -1070,9 +1118,9 @@ ODS SupBD::parseODS(SupSegment *segment, QString &msg, bool forceFirst, bool &is
 
         msg = QString("ID: %1, update: %2, seq: %3%4%5").arg(QString::number(objID))
                                                         .arg(QString::number(objVer))
-                                                        .arg(isFirst ? QString("first") : QString(""))
-                                                        .arg((isFirst && last) ? QString("/") : QString(""))
-                                                        .arg(last ? QString("last") : QString(""));
+                                                        .arg(isFirst ? QString("first") : QString())
+                                                        .arg((isFirst && last) ? QString("/") : QString())
+                                                        .arg(last ? QString("last") : QString());
     }
     return ods;
 }
@@ -1141,7 +1189,7 @@ void SupBD::findImageArea(SubPictureBD *subPicture)
 {
     QImage image = _bitmap.image(_palette);
     int top = 0, bottom = 0, left = 0, right = 0;
-    QVector<QRgb> colors = image.colorTable();//.constData();
+    QList<QRgb> colors = image.colorTable();//.constData();
 
     const uchar *pixels = image.constScanLine(0);
     int pitch = image.bytesPerLine();
@@ -1271,7 +1319,7 @@ Palette SupBD::decodePalette(SubPictureBD *subPicture)
     bool fadeOut = false;
     int palIndex = 0;
 
-    QVector<PaletteInfo> pl = subPicture->palettes[subPicture->paletteId()];
+    QList<PaletteInfo> pl = subPicture->palettes[subPicture->paletteId()];
 
     if (pl.isEmpty())
     {
@@ -1337,7 +1385,7 @@ Palette SupBD::decodePalette(SubPictureBD *subPicture)
 Bitmap SupBD::decodeImage(SubPictureBD *subPicture, int transparentIndex)
 {
     int numImgObj = 0;
-    QVector<int> objectIdxes;
+    QList<int> objectIdxes;
 
     for (int i = 0; i < subPicture->imageObjectList.size(); ++i)
     {
@@ -1375,10 +1423,9 @@ Bitmap SupBD::decodeImage(SubPictureBD *subPicture, int transparentIndex)
         int ofs = 0;
         int size = 0;
         int xpos = 0;
-        int line = 0;
 
         // just for multi-packet support, copy all of the image data in one common buffer
-        QVector<uchar> buf = QVector<uchar>(imageObject.bufferSize());
+        QList<uchar> buf = QList<uchar>(imageObject.bufferSize());
         index = 0;
         for (int p = 0; p < imageObject.fragmentList().size(); ++p)
         {

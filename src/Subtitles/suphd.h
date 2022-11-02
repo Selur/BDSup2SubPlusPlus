@@ -26,7 +26,7 @@
 
 #include <QObject>
 #include <QString>
-#include <QVector>
+#include <QList>
 #include <QScopedPointer>
 
 class SubtitleProcessor;
@@ -52,7 +52,7 @@ public:
     qint64 endTime(int index);
     qint64 startTime(int index);
     qint64 startOffset(int index);
-    bool isForced(int index) { return false; }
+    bool isForced(int /*index*/) { return false; }
 
     Bitmap &bitmap() { return _bitmap; }
 
@@ -78,7 +78,7 @@ private:
 
     QString supFileName;
 
-    QVector<SubPictureHD> subPictures;
+    QList<SubPictureHD> subPictures;
 
     SubtitleProcessor* subtitleProcessor = 0;
 

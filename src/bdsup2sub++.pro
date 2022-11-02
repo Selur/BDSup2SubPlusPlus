@@ -1,30 +1,35 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2011-12-26T16:10:17
-#
-#-------------------------------------------------
-
-#!contains(QT_CONFIG,c++11) : error(bdsup2sub++ requires Qt to be configured with C++11 support)
 
 #check Qt version
 QT_VERSION = $$[QT_VERSION]
 QT_VERSION = $$split(QT_VERSION, ".")
 QT_VER_MAJ = $$member(QT_VERSION, 0)
 
-QT       += core xml
+QT        += core xml
 lessThan(QT_VER_MAJ, 4) {
-QT       += gui
+QT        += gui
 }
 greaterThan(QT_VER_MAJ, 4) {
-QT       -= gui
-QT	 += widgets
+QT        -= gui
+QT        += widgets
 }
-CONFIG   += qt console qxt
-#contains(QT_CONFIG,c++11): CONFIG += c++11
-QXT      += core
-QMAKE_CXXFLAGS += -std=c++11
-TARGET = bdsup2sub++
-TEMPLATE = app
+CONFIG    += qt console
+DEFINES   += BUILD_QXT_CORE
+win32-msvc* {
+  lessThan(QT_MAJOR_VERSION, 6) {
+    CONFIG += c++14 # C++14 support
+  } else {
+    CONFIG += c++17 # C++11 support
+    QMAKE_CXXFLAGS += /std:c++17
+  }
+} else {
+  lessThan(QT_MAJOR_VERSION, 6) {
+    QMAKE_CXXFLAGS += -std=c++14
+  } else {
+    QMAKE_CXXFLAGS += -std=c++17
+  }
+}
+TARGET     = bdsup2sub++
+TEMPLATE   = app
 
 SOURCES += main.cpp\
         bdsup2sub.cpp \
@@ -70,7 +75,9 @@ SOURCES += main.cpp\
     colordialog.cpp \
     framepalettedialog.cpp \
     movedialog.cpp \
-    Subtitles/imageobject.cpp
+    Subtitles/imageobject.cpp \
+    qxtglobal.cpp \
+    qxtcommandoptions.cpp
 
 HEADERS  += bdsup2sub.h \
     zoomableimagearea.h \
@@ -118,7 +125,9 @@ HEADERS  += bdsup2sub.h \
     helpdialog.h \
     colordialog.h \
     framepalettedialog.h \
-    movedialog.h
+    movedialog.h \
+    qxtglobal.h \
+    qxtcommandoptions.h
 
 FORMS    += bdsup2sub.ui \
     progressdialog.ui \

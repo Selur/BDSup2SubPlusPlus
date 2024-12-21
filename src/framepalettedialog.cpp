@@ -72,10 +72,13 @@ FramePaletteDialog::~FramePaletteDialog()
 void FramePaletteDialog::setIndex(int idx)
 {
     index = idx;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> a = subtitleProcessor->getFrameAlpha(index);
+    QVector<int> p = subtitleProcessor->getFramePal(index);
+#else
     QList<int> a = subtitleProcessor->getFrameAlpha(index);
     QList<int> p = subtitleProcessor->getFramePal(index);
-
+#endif
     if (!a.isEmpty())
     {
         alpha = a;
@@ -140,25 +143,27 @@ void FramePaletteDialog::on_resetAllButton_clicked()
 {
     for (int j = 0; j < subtitleProcessor->getNumberOfFrames(); ++j)
     {
-        QList<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(j);
-        QList<int> originalPalette = subtitleProcessor->getOriginalFramePal(j);
-        QList<int> a = subtitleProcessor->getFrameAlpha(j);
-        QList<int> p = subtitleProcessor->getFramePal(j);
-
-        if (!a.isEmpty() && !originalAlpha.isEmpty())
-        {
-            for (int i = 0; i < a.size(); ++i)
-            {
-                a.replace(i, originalAlpha[i]);
-            }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(j);
+      QVector<int> originalPalette = subtitleProcessor->getOriginalFramePal(j);
+      QVector<int> a = subtitleProcessor->getFrameAlpha(j);
+      QVector<int> p = subtitleProcessor->getFramePal(j);
+#else
+      QList<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(j);
+      QList<int> originalPalette = subtitleProcessor->getOriginalFramePal(j);
+      QList<int> a = subtitleProcessor->getFrameAlpha(j);
+      QList<int> p = subtitleProcessor->getFramePal(j);
+#endif
+      if (!a.isEmpty() && !originalAlpha.isEmpty()) {
+        for (int i = 0; i < a.size(); ++i) {
+          a.replace(i, originalAlpha[i]);
         }
-        if (!p.isEmpty() && !originalPalette.isEmpty())
-        {
-            for (int i = 0; i < p.size(); ++i)
-            {
-                p.replace(i, originalPalette[i]);
-            }
+      }
+      if (!p.isEmpty() && !originalPalette.isEmpty()) {
+        for (int i = 0; i < p.size(); ++i) {
+          p.replace(i, originalPalette[i]);
         }
+      }
     }
 }
 
@@ -166,22 +171,23 @@ void FramePaletteDialog::on_setAllButton_clicked()
 {
     for (int j = 0; j < subtitleProcessor->getNumberOfFrames(); ++j)
     {
-        QList<int> &a = subtitleProcessor->getFrameAlpha(j);
-        QList<int> &p = subtitleProcessor->getFramePal(j);
-        if (!a.isEmpty())
-        {
-            for (int i = 0; i < a.size(); ++i)
-            {
-                a.replace(i, alpha[i]);
-            }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<int> &a = subtitleProcessor->getFrameAlpha(j);
+      QVector<int> &p = subtitleProcessor->getFramePal(j);
+#else
+      QList<int> &a = subtitleProcessor->getFrameAlpha(j);
+      QList<int> &p = subtitleProcessor->getFramePal(j);
+#endif
+      if (!a.isEmpty()) {
+        for (int i = 0; i < a.size(); ++i) {
+          a.replace(i, alpha[i]);
         }
-        if (!p.isEmpty())
-        {
-            for (int i = 0; i < p.size(); ++i)
-            {
-                p.replace(i, pal[i]);
-            }
+      }
+      if (!p.isEmpty()) {
+        for (int i = 0; i < p.size(); ++i) {
+          p.replace(i, pal[i]);
         }
+      }
     }
 }
 
@@ -192,45 +198,48 @@ void FramePaletteDialog::on_cancelButton_clicked()
 
 void FramePaletteDialog::on_resetButton_clicked()
 {
-    QList<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(index);
-    QList<int> originalPalette = subtitleProcessor->getOriginalFramePal(index);
-    QList<int> &a = subtitleProcessor->getFrameAlpha(index);
-    QList<int> &p = subtitleProcessor->getFramePal(index);
-
-    if (!a.isEmpty() && !originalAlpha.isEmpty())
-    {
-        for (int i = 0; i < a.size(); ++i)
-        {
-            a.replace(i, originalAlpha[i]);
-        }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(index);
+  QVector<int> originalPalette = subtitleProcessor->getOriginalFramePal(index);
+  QVector<int> &a = subtitleProcessor->getFrameAlpha(index);
+  QVector<int> &p = subtitleProcessor->getFramePal(index);
+#else
+  QList<int> originalAlpha = subtitleProcessor->getOriginalFrameAlpha(index);
+  QList<int> originalPalette = subtitleProcessor->getOriginalFramePal(index);
+  QList<int> &a = subtitleProcessor->getFrameAlpha(index);
+  QList<int> &p = subtitleProcessor->getFramePal(index);
+#endif
+  if (!a.isEmpty() && !originalAlpha.isEmpty()) {
+    for (int i = 0; i < a.size(); ++i) {
+      a.replace(i, originalAlpha[i]);
     }
-    if (!p.isEmpty() && !originalPalette.isEmpty())
-    {
-        for (int i = 0; i < p.size(); ++i)
-        {
-            p.replace(i, originalPalette[i]);
-        }
+  }
+  if (!p.isEmpty() && !originalPalette.isEmpty()) {
+    for (int i = 0; i < p.size(); ++i) {
+      p.replace(i, originalPalette[i]);
     }
-    setIndex(index);
+  }
+  setIndex(index);
 }
 
 void FramePaletteDialog::on_okButton_clicked()
 {
-    QList<int> &a = subtitleProcessor->getFrameAlpha(index);
-    QList<int> &p = subtitleProcessor->getFramePal(index);
-    if (!a.isEmpty())
-    {
-        for (int i = 0; i < a.size(); ++i)
-        {
-            a.replace(i, alpha[i]);
-        }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> &a = subtitleProcessor->getFrameAlpha(index);
+  QVector<int> &p = subtitleProcessor->getFramePal(index);
+#else
+  QList<int> &a = subtitleProcessor->getFrameAlpha(index);
+  QList<int> &p = subtitleProcessor->getFramePal(index);
+#endif
+  if (!a.isEmpty()) {
+    for (int i = 0; i < a.size(); ++i) {
+      a.replace(i, alpha[i]);
     }
-    if (!p.isEmpty())
-    {
-        for (int i = 0; i < p.size(); ++i)
-        {
-            p.replace(i, pal[i]);
-        }
+  }
+  if (!p.isEmpty()) {
+    for (int i = 0; i < p.size(); ++i) {
+      p.replace(i, pal[i]);
     }
-    accept();
+  }
+  accept();
 }

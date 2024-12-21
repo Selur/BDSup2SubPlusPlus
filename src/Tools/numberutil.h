@@ -21,28 +21,60 @@
 #define NUMBERUTIL_H
 
 #include <QString>
-#include <QList>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
 
 class NumberUtil
 {
 public:
-    static void setByte(QList<uchar>& buf, int index, int value)
-    {
-        buf.replace(index, (uchar)value);
+  static void setByte(
+    QVector<uchar>& buf, int index, int value)
+  {
+    buf.replace(index, (uchar)value);
     }
-    static void setWord(QList<uchar>& buf, int index, int value)
+    static void setWord(
+      QVector<uchar>& buf, int index, int value)
     {
         buf.replace(index, (uchar)(value >> 8));
         buf.replace(index + 1, (uchar)value);
     }
-    static void setDWord(QList<uchar>& buf, int index, int value)
+    static void setDWord(
+      QVector<uchar>& buf, int index, int value)
     {
         buf.replace(index, (uchar)(value >> 24));
         buf.replace(index + 1, (uchar)(value >> 16));
         buf.replace(index + 2, (uchar)(value >> 8));
         buf.replace(index + 3, (uchar)value);
     }
-    static void setString(QList<uchar> &buf, int index, QString string);
+    static void setString(QVector<uchar>& buf, int index, QString string);
 };
+#else
+#include <QList>
+
+class NumberUtil
+{
+  public:
+    static void setByte(
+      QList<uchar>& buf, int index, int value)
+    {
+      buf.replace(index, (uchar)value);
+    }
+    static void setWord(
+      QList<uchar>& buf, int index, int value)
+    {
+      buf.replace(index, (uchar)(value >> 8));
+      buf.replace(index + 1, (uchar)value);
+    }
+    static void setDWord(
+      QList<uchar>& buf, int index, int value)
+    {
+      buf.replace(index, (uchar)(value >> 24));
+      buf.replace(index + 1, (uchar)(value >> 16));
+      buf.replace(index + 2, (uchar)(value >> 8));
+      buf.replace(index + 3, (uchar)value);
+    }
+    static void setString(QList<uchar>& buf, int index, QString string);
+};
+#endif
 
 #endif // NUMBERUTIL_H

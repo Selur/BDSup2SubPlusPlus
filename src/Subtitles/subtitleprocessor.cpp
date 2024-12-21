@@ -190,8 +190,13 @@ int SubtitleProcessor::getNumForcedFrames()
     }
     return substream->numForcedFrames();
 }
-
-QList<int> &SubtitleProcessor::getFrameAlpha(int index)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> &SubtitleProcessor::getFrameAlpha(
+  int index)
+#else
+QList<int> &SubtitleProcessor::getFrameAlpha(
+  int index)
+#endif
 {
     if (inMode == InputMode::VOBSUB)
     {
@@ -200,7 +205,13 @@ QList<int> &SubtitleProcessor::getFrameAlpha(int index)
     return supDVD->getFrameAlpha(index);
 }
 
-QList<int> SubtitleProcessor::getOriginalFrameAlpha(int index)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> SubtitleProcessor::getOriginalFrameAlpha(
+  int index)
+#else
+QList<int> SubtitleProcessor::getOriginalFrameAlpha(
+  int index)
+#endif
 {
     if (inMode == InputMode::VOBSUB)
     {
@@ -208,8 +219,13 @@ QList<int> SubtitleProcessor::getOriginalFrameAlpha(int index)
     }
     return supDVD->getOriginalFrameAlpha(index);
 }
-
-QList<int> &SubtitleProcessor::getFramePal(int index)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> &SubtitleProcessor::getFramePal(
+  int index)
+#else
+QList<int> &SubtitleProcessor::getFramePal(
+  int index)
+#endif
 {
     if (inMode == InputMode::VOBSUB)
     {
@@ -217,8 +233,13 @@ QList<int> &SubtitleProcessor::getFramePal(int index)
     }
     return supDVD->getFramePal(index);
 }
-
-QList<int> SubtitleProcessor::getOriginalFramePal(int index)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> SubtitleProcessor::getOriginalFramePal(
+  int index)
+#else
+QList<int> SubtitleProcessor::getOriginalFramePal(
+  int index)
+#endif
 {
     if (inMode == InputMode::VOBSUB)
     {
@@ -382,183 +403,164 @@ void SubtitleProcessor::exit()
 
 void SubtitleProcessor::scanSubtitles()
 {
-    subPictures = QList<SubPicture*>(substream->numFrames());
-    SubPicture* picSrc = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  subPictures = QVector<SubPicture *>(substream->numFrames());
+#else
+  subPictures = QList<SubPicture *>(substream->numFrames());
+#endif
+  SubPicture *picSrc = 0;
 
-    double factTS = 1.0;
+  double factTS = 1.0;
 
-    if (convertFPS)
-    {
-        factTS = fpsSrc / fpsTrg;
+  if (convertFPS) {
+    factTS = fpsSrc / fpsTrg;
+  }
+  else {
+    factTS = 1.0;
+  }
+
+  // change target resolution to source resolution if no conversion is needed
+  if (!convertResolution && getNumberOfFrames() > 0) {
+    resolutionTrg = getResolution(getSubPictureSrc(0)->screenWidth(), getSubPictureSrc(0)->screenHeight());
+  }
+
+  double fx;
+  double fy;
+  if (applyFreeScale) {
+    fx = freeScaleX;
+    fy = freeScaleY;
+  }
+  else {
+    fx = 1.0;
+    fy = 1.0;
+  }
+
+  // first run: clone source subpics, apply speedup/down,
+  for (int i = 0; i < subPictures.size(); ++i) {
+    picSrc = substream->subPicture(i);
+    subPictures.replace(i, picSrc->copy());
+    qint64 ts = picSrc->startTime();
+    qint64 te = picSrc->endTime();
+
+    SubPicture *picTrg = subPictures.at(i);
+    // copy time stamps and apply speedup/speeddown
+    if (!convertFPS) {
+      picTrg->setStartTime(ts + delayPTS);
+      picTrg->setEndTime(te + delayPTS);
     }
-    else
-    {
-        factTS = 1.0;
+    else {
+      picTrg->setStartTime((qint64)((ts * factTS) + 0.5) + delayPTS);
+      picTrg->setEndTime((qint64)((te * factTS) + 0.5) + delayPTS);
     }
+    // synchronize to target frame rate
+    picTrg->setStartTime(syncTimePTS(picTrg->startTime(), fpsTrg));
+    picTrg->setEndTime(syncTimePTS(picTrg->endTime(), fpsTrg));
 
-    // change target resolution to source resolution if no conversion is needed
-    if (!convertResolution && getNumberOfFrames() > 0)
-    {
-        resolutionTrg = getResolution(getSubPictureSrc(0)->screenWidth(), getSubPictureSrc(0)->screenHeight());
-    }
-
-    double fx;
-    double fy;
-    if (applyFreeScale)
-    {
-        fx = freeScaleX;
-        fy = freeScaleY;
-    }
-    else
-    {
-        fx = 1.0;
-        fy = 1.0;
-    }
-
-    // first run: clone source subpics, apply speedup/down,
-    for (int i = 0; i < subPictures.size(); ++i)
-    {
-        picSrc = substream->subPicture(i);
-        subPictures.replace(i, picSrc->copy());
-        qint64 ts = picSrc->startTime();
-        qint64 te = picSrc->endTime();
-
-        SubPicture* picTrg = subPictures.at(i);
-        // copy time stamps and apply speedup/speeddown
-        if (!convertFPS)
-        {
-            picTrg->setStartTime(ts + delayPTS);
-            picTrg->setEndTime(te + delayPTS);
-        }
-        else
-        {
-            picTrg->setStartTime((qint64)((ts * factTS) + 0.5) + delayPTS);
-            picTrg->setEndTime((qint64)((te * factTS) + 0.5) + delayPTS);
-        }
-        // synchronize to target frame rate
-        picTrg->setStartTime(syncTimePTS(picTrg->startTime(), fpsTrg));
-        picTrg->setEndTime(syncTimePTS(picTrg->endTime(), fpsTrg));
-
-        // set forced flag
-        switch ((int)forceAll)
-        {
-            case (int)SetState::SET:
-                picTrg->setForced(true);
-                break;
-            case (int)SetState::CLEAR:
-                picTrg->setForced(false);
-                break;
-        }
-
-        double scaleX;
-        double scaleY;
-        if (convertResolution)
-        {
-            // adjust image sizes and offsets
-            // determine scaling factors
-            picTrg->setScreenWidth(getResolution(resolutionTrg)[0]);
-            picTrg->setScreenHeight(getResolution(resolutionTrg)[1]);
-            scaleX = (double)picTrg->screenWidth() / picSrc->screenWidth();
-            scaleY = (double)picTrg->screenHeight() / picSrc->screenHeight();
-        }
-        else
-        {
-            picTrg->setScreenWidth(picSrc->screenWidth());
-            picTrg->setScreenHeight(picSrc->screenHeight());
-            scaleX = 1.0;
-            scaleY = 1.0;
-        }
-
-        double width = ((picSrc->imageWidth() * scaleX) * fx) + 0.5;
-        if (width < minDim)
-        {
-            width = (double) picSrc->imageWidth();
-        }
-        else if (width > picTrg->screenWidth())
-        {
-            width = (double) picTrg->screenWidth();
-        }
-
-        double height = ((picSrc->imageHeight() * scaleY) * fy) + 0.5;
-        if (height < minDim)
-        {
-            height = (double) picSrc->imageHeight();
-        }
-        else if (height > picTrg->screenHeight())
-        {
-            height = (double) picTrg->screenHeight();
-        }
-
-        double xOfs = picSrc->x() * scaleX;
-        int spaceSrc = (int)(((picSrc->screenWidth() - picSrc->imageWidth()) * scaleX) + 0.5);
-        int spaceTrg = picTrg->screenWidth() - width;
-        xOfs += ((spaceTrg - spaceSrc) / 2.0);
-        if (xOfs < 0)
-        {
-            xOfs = 0;
-        }
-        else if ((xOfs + width) > picTrg->screenWidth())
-        {
-            xOfs = (double) picTrg->screenWidth() - width;
-        }
-
-        double yOfs = picSrc->y() * scaleY;
-        spaceSrc = (int)((picSrc->screenHeight() - picSrc->imageHeight()) * scaleY + 0.5);
-        spaceTrg = picTrg->screenHeight() - height;
-        yOfs += ((spaceTrg - spaceSrc) / 2.0);
-
-        if ((yOfs + height) > picTrg->screenHeight())
-        {
-            yOfs = (double) picTrg->screenHeight() - height;
-        }
-
-        QMap<int, QRect> &imageRects = picTrg->imageSizes();
-        QMap<int, QRect> &windowRects = picTrg->windowSizes();
-
-        double widthScale = (double) width / picTrg->imageWidth();
-        double heightScale = (double) height / picTrg->imageHeight();
-        double xScale = (double) xOfs / picTrg->x();
-        double yScale = (double) yOfs / picTrg->y();
-
-        for (QRect imageRect : imageRects)
-        {
-            int oldWidth = imageRect.width();
-            imageRect.setX((int) ((imageRect.x() * xScale) + 0.5));
-            imageRect.setWidth((int) ((oldWidth * widthScale) + 0.5));
-
-            int oldHeight = imageRect.height();
-            imageRect.setY((int) ((imageRect.y() * yScale) + 0.5));
-            imageRect.setHeight((int) ((oldHeight * heightScale) + 0.5));
-        }
-        for (QRect windowRect : windowRects)
-        {
-            int oldWidth = windowRect.width();
-            windowRect.setX((int) ((windowRect.x() * xScale) + 0.5));
-            windowRect.setWidth((int) ((oldWidth * widthScale) + 0.5));
-
-            int oldHeight = windowRect.height();
-            windowRect.setY((int) ((windowRect.y() * yScale) + 0.5));
-            windowRect.setHeight((int) ((oldHeight * heightScale) + 0.5));
-        }
+    // set forced flag
+    switch ((int)forceAll) {
+      case (int)SetState::SET:
+        picTrg->setForced(true);
+        break;
+      case (int)SetState::CLEAR:
+        picTrg->setForced(false);
+        break;
     }
 
-    // 2nd run: validate times
-    SubPicture* picPrev = 0;
-    SubPicture* picNext;
-    for (int i = 0; i < subPictures.size(); ++i)
-    {
-        if (i < subPictures.size() - 1)
-        {
-            picNext = subPictures.at(i + 1);
-        }
-        else
-        {
-            picNext = 0;
-        }
-        picSrc = subPictures.at(i);
-        validateTimes(i, subPictures.at(i), picNext, picPrev);
-        picPrev = picSrc;
+    double scaleX;
+    double scaleY;
+    if (convertResolution) {
+      // adjust image sizes and offsets
+      // determine scaling factors
+      picTrg->setScreenWidth(getResolution(resolutionTrg)[0]);
+      picTrg->setScreenHeight(getResolution(resolutionTrg)[1]);
+      scaleX = (double)picTrg->screenWidth() / picSrc->screenWidth();
+      scaleY = (double)picTrg->screenHeight() / picSrc->screenHeight();
     }
+    else {
+      picTrg->setScreenWidth(picSrc->screenWidth());
+      picTrg->setScreenHeight(picSrc->screenHeight());
+      scaleX = 1.0;
+      scaleY = 1.0;
+    }
+
+    double width = ((picSrc->imageWidth() * scaleX) * fx) + 0.5;
+    if (width < minDim) {
+      width = (double)picSrc->imageWidth();
+    }
+    else if (width > picTrg->screenWidth()) {
+      width = (double)picTrg->screenWidth();
+    }
+
+    double height = ((picSrc->imageHeight() * scaleY) * fy) + 0.5;
+    if (height < minDim) {
+      height = (double)picSrc->imageHeight();
+    }
+    else if (height > picTrg->screenHeight()) {
+      height = (double)picTrg->screenHeight();
+    }
+
+    double xOfs = picSrc->x() * scaleX;
+    int spaceSrc = (int)(((picSrc->screenWidth() - picSrc->imageWidth()) * scaleX) + 0.5);
+    int spaceTrg = picTrg->screenWidth() - width;
+    xOfs += ((spaceTrg - spaceSrc) / 2.0);
+    if (xOfs < 0) {
+      xOfs = 0;
+    }
+    else if ((xOfs + width) > picTrg->screenWidth()) {
+      xOfs = (double)picTrg->screenWidth() - width;
+    }
+
+    double yOfs = picSrc->y() * scaleY;
+    spaceSrc = (int)((picSrc->screenHeight() - picSrc->imageHeight()) * scaleY + 0.5);
+    spaceTrg = picTrg->screenHeight() - height;
+    yOfs += ((spaceTrg - spaceSrc) / 2.0);
+
+    if ((yOfs + height) > picTrg->screenHeight()) {
+      yOfs = (double)picTrg->screenHeight() - height;
+    }
+
+    QMap<int, QRect> &imageRects = picTrg->imageSizes();
+    QMap<int, QRect> &windowRects = picTrg->windowSizes();
+
+    double widthScale = (double)width / picTrg->imageWidth();
+    double heightScale = (double)height / picTrg->imageHeight();
+    double xScale = (double)xOfs / picTrg->x();
+    double yScale = (double)yOfs / picTrg->y();
+
+    for (QRect imageRect : imageRects) {
+      int oldWidth = imageRect.width();
+      imageRect.setX((int)((imageRect.x() * xScale) + 0.5));
+      imageRect.setWidth((int)((oldWidth * widthScale) + 0.5));
+
+      int oldHeight = imageRect.height();
+      imageRect.setY((int)((imageRect.y() * yScale) + 0.5));
+      imageRect.setHeight((int)((oldHeight * heightScale) + 0.5));
+    }
+    for (QRect windowRect : windowRects) {
+      int oldWidth = windowRect.width();
+      windowRect.setX((int)((windowRect.x() * xScale) + 0.5));
+      windowRect.setWidth((int)((oldWidth * widthScale) + 0.5));
+
+      int oldHeight = windowRect.height();
+      windowRect.setY((int)((windowRect.y() * yScale) + 0.5));
+      windowRect.setHeight((int)((oldHeight * heightScale) + 0.5));
+    }
+  }
+
+  // 2nd run: validate times
+  SubPicture *picPrev = 0;
+  SubPicture *picNext;
+  for (int i = 0; i < subPictures.size(); ++i) {
+    if (i < subPictures.size() - 1) {
+      picNext = subPictures.at(i + 1);
+    }
+    else {
+      picNext = 0;
+    }
+    picSrc = subPictures.at(i);
+    validateTimes(i, subPictures.at(i), picNext, picPrev);
+    picPrev = picSrc;
+  }
 }
 
 void SubtitleProcessor::reScanSubtitles(Resolution oldResolution, double fpsTrgOld, int delayOld, bool convertFpsOld, double fsXOld, double fsYOld)
@@ -601,10 +603,15 @@ void SubtitleProcessor::reScanSubtitles(Resolution oldResolution, double fpsTrgO
 
     if (oldResolution != resolutionTrg)
     {
-        QList<int> rOld = getResolution(oldResolution);
-        QList<int> rNew = getResolution(resolutionTrg);
-        factX = (double)rNew[0] / (double)rOld[0];
-        factY = (double)rNew[1] / (double)rOld[1];
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<int> rOld = getResolution(oldResolution);
+      QVector<int> rNew = getResolution(resolutionTrg);
+#else
+      QList<int> rOld = getResolution(oldResolution);
+      QList<int> rNew = getResolution(resolutionTrg);
+#endif
+      factX = (double)rNew[0] / (double)rOld[0];
+      factY = (double)rNew[1] / (double)rOld[1];
     }
     else
     {
@@ -783,8 +790,13 @@ void SubtitleProcessor::reScanSubtitles(Resolution oldResolution, double fpsTrgO
         subPicPrev = picOld;
     }
 }
-
-QList<int> SubtitleProcessor::getResolution(Resolution resolution)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> SubtitleProcessor::getResolution(
+  Resolution resolution)
+#else
+QList<int> SubtitleProcessor::getResolution(
+  Resolution resolution)
+#endif
 {
     return resolutions.at((int) resolution);
 }
@@ -1000,8 +1012,13 @@ void SubtitleProcessor::createSubtitleStream()
 void SubtitleProcessor::writeSub(QString filename)
 {
     QScopedPointer<QFile> out;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> offsets;
+    QVector<int> timestamps;
+#else
     QList<int> offsets;
     QList<int> timestamps;
+#endif
     int frameNum = 0;
     int maxNum;
     QString fn = "";
@@ -1069,7 +1086,11 @@ void SubtitleProcessor::writeSub(QString filename)
                 {
                     subDVD = QSharedPointer<SubDVD>(new SubDVD("", "", this));
                 }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+                QVector<uchar> buf = subDVD->createSubFrame(*subVobTrg, trgBitmap);
+#else
                 QList<uchar> buf = subDVD->createSubFrame(*subVobTrg, trgBitmap);
+#endif
                 out->write((const char*)buf.constData(), buf.size());
                 offset += buf.size();
                 offsets.push_back(offset);
@@ -1083,7 +1104,11 @@ void SubtitleProcessor::writeSub(QString filename)
                 {
                     supDVD = QSharedPointer<SupDVD>(new SupDVD("", "", this));
                 }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+                QVector<uchar> buf = supDVD->createSupFrame(*subVobTrg, trgBitmap);
+#else
                 QList<uchar> buf = supDVD->createSupFrame(*subVobTrg, trgBitmap);
+#endif
                 out->write((const char*)buf.constData(), buf.size());
             }
             else if (outMode == OutputMode::BDSUP)
@@ -1094,7 +1119,11 @@ void SubtitleProcessor::writeSub(QString filename)
                 {
                     supBD = QSharedPointer<SupBD>(new SupBD("", this));
                 }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+                QVector<uchar> buf = supBD->createSupFrame(subPictures[i], trgBitmap, trgPal, exportForced);
+#else
                 QList<uchar> buf = supBD->createSupFrame(subPictures[i], trgBitmap, trgPal, exportForced);
+#endif
                 out->write((const char*)buf.constData(), buf.size());
             }
             else
@@ -1108,7 +1137,6 @@ void SubtitleProcessor::writeSub(QString filename)
                 QString fnp = supXML->getPNGname(fn, i + 1);
                 int numberOfImages = 1;
                 const QList<QRect> &imageRects = subPictures[i]->imageSizes().values();
-
                 if (imageRects.size() > numberOfImages)
                 {
                     numberOfImages = imageRects.size();
@@ -1183,12 +1211,20 @@ void SubtitleProcessor::writeSub(QString filename)
     {
         // VobSub - write IDX
         /* return offets as array of ints */
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> ofs(offsets.size());
+#else
         QList<int> ofs(offsets.size());
+#endif
         for (int i = 0; i < ofs.size(); ++i)
         {
             ofs.replace(i, offsets[i]);
         }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> ts(timestamps.size());
+#else
         QList<int> ts(timestamps.size());
+#endif
         for (int i = 0; i < ts.size(); ++i)
         {
             ts.replace(i, timestamps[i]);
@@ -1588,7 +1624,11 @@ void SubtitleProcessor::determineFramePalette(int index)
         }
 
         // set new frame palette
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> paletteFrame(4);
+#else
         QList<int> paletteFrame(4);
+#endif
         paletteFrame.replace(0, 0);        // black - transparent color
         paletteFrame.replace(1, colIdx);   // primary color
         if (colIdx == 1)
@@ -1611,9 +1651,13 @@ void SubtitleProcessor::determineFramePalette(int index)
         SubstreamDVD* substreamDVD;
         // use palette from loaded VobSub or SUP/IFO
         Palette miniPal(4, true);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> alpha;
+        QVector<int> paletteFrame;
+#else
         QList<int> alpha;
         QList<int> paletteFrame;
-
+#endif
         if (inMode == InputMode::VOBSUB)
         {
             substreamDVD = subDVD.data();
@@ -2515,8 +2559,13 @@ Resolution SubtitleProcessor::getResolution(QString string)
     }
     return Resolution::HD_1080;
 }
-
-QList<int> SubtitleProcessor::getResolutions(Resolution resolution)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> SubtitleProcessor::getResolutions(
+  Resolution resolution)
+#else
+QList<int> SubtitleProcessor::getResolutions(
+  Resolution resolution)
+#endif
 {
     if (resolution == Resolution::NTSC)
     {

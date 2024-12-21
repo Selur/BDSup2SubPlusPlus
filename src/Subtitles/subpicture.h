@@ -22,7 +22,7 @@
 
 #include "erasepatch.h"
 
-#include <QList>
+#include <QVector>
 #include <QRect>
 #include <QMap>
 
@@ -130,16 +130,22 @@ public:
 
     QMap<int, QRect> &windowSizes() { return scaledWindowRects; }
     void setWindowSizes(QMap<int, QRect> rects) { windowRects = rects; scaledWindowRects = rects; }
-
-    QList<int> &objectIDs() { return objectIds; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int>& objectIDs() { return objectIds; }
+#else
+    QList<int>& objectIDs() { return objectIds; }
+#endif
 
     QMap<int, int> forcedFlags;
 
     virtual SubPicture* copy();
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<ErasePatch*> erasePatch;
+#else
     QList<ErasePatch*> erasePatch;
+#endif
 
-protected:
+  protected:
     int _imageWidth = 0;
     int _imageHeight = 0;
     int xOfs = 0;
@@ -161,7 +167,11 @@ protected:
     bool forced = false;
     bool decoded = false;
     bool excluded = false;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> objectIds;
+#else
     QList<int> objectIds;
+#endif
 };
 
 #endif // SUBPICTURE_H

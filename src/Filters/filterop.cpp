@@ -30,8 +30,12 @@ FilterOp::FilterOp(Filter& filter) :
     internalFilter(filter)
 {
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<QRgb> FilterOp::filter(
+  Bitmap &src, Palette &palette, int w, int h)
+#else
 QList<QRgb> FilterOp::filter(Bitmap &src, Palette &palette, int w, int h)
+#endif
 {
     dstWidth = w;
     dstHeight = h;
@@ -44,12 +48,18 @@ QList<QRgb> FilterOp::filter(Bitmap &src, Palette &palette, int w, int h)
     // Precalculate  subsampling/supersampling
     horizontalSubsamplingData = createSubSampling(srcWidth, dstWidth, xscale);
     verticalSubsamplingData = createSubSampling(srcHeight, dstHeight, yscale);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> workPixels(srcHeight * dstWidth);
+#else
     QList<QRgb> workPixels(srcHeight * dstWidth);
+#endif
     QImage inImage = src.image(palette);
     filterHorizontally(inImage, workPixels.data(), palette.colorTable().constData());
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> outPixels(dstHeight * dstWidth);
+#else
     QList<QRgb> outPixels(dstHeight * dstWidth);
+#endif
     filterVertically(workPixels, outPixels);
 
     return outPixels;
@@ -57,145 +67,142 @@ QList<QRgb> FilterOp::filter(Bitmap &src, Palette &palette, int w, int h)
 
 FilterOp::SubSamplingData FilterOp::createSubSampling(int srcSize, int dstSize, float scale)
 {
-    QList<int> arrN(dstSize);
-    int numContributors;
-    QList<float> arrWeight;
-    QList<int> arrPixel;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> arrN(dstSize);
+  int numContributors;
+  QVector<float> arrWeight;
+  QVector<int> arrPixel;
+#else
+  QList<int> arrN(dstSize);
+  int numContributors;
+  QList<float> arrWeight;
+  QList<int> arrPixel;
+#endif
+  float fwidth = internalFilter.radius();
 
-    float fwidth = internalFilter.radius();
+  if (scale < 1.0f) {
+    // scale down -> subsampling
+    float width = fwidth / scale;
+    numContributors = (int)((width * 2.0f) + 2);  // Heinz: added 1 to be safe with the ceiling
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    arrWeight = QVector<float>(dstSize * numContributors);
+    arrPixel = QVector<int>(dstSize * numContributors);
+#else
+    arrWeight = QList<float>(dstSize * numContributors);
+    arrPixel = QList<int>(dstSize * numContributors);
+#endif
+    float fNormFac = (float)(1.0f / (ceil(width) / fwidth));
+    //
+    for (int i = 0; i < dstSize; ++i) {
+      arrN[i] = 0;
+      int subindex = i * numContributors;
+      float center = i / scale;
+      int left = (int)floor(center - width);
+      int right = (int)ceil(center + width);
+      for (int j = left; j <= right; ++j) {
+        float weight;
+        weight = internalFilter.value((center - j) * fNormFac);
 
-    if (scale < 1.0f)
-    {
-        // scale down -> subsampling
-        float width = fwidth / scale;
-        numContributors = (int)((width * 2.0f) + 2); // Heinz: added 1 to be safe with the ceiling
-        arrWeight = QList<float>(dstSize * numContributors);
-        arrPixel = QList<int>(dstSize * numContributors);
-
-        float fNormFac = (float)(1.0f / (ceil(width) / fwidth));
-        //
-        for (int i = 0; i < dstSize; ++i)
-        {
-            arrN[i] = 0;
-            int subindex = i * numContributors;
-            float center = i / scale;
-            int left = (int)floor(center - width);
-            int right = (int)ceil(center + width);
-            for (int j = left; j <= right; ++j)
-            {
-                float weight;
-                weight = internalFilter.value((center - j) * fNormFac);
-
-                if (weight == 0.0f)
-                {
-                    continue;
-                }
-                int n;
-                if (j < 0)
-                {
-                    n = -j;
-                }
-                else if (j >= srcSize)
-                {
-                    n = ((srcSize - j) + srcSize) - 1;
-                }
-                else
-                {
-                    n = j;
-                }
-
-                int k = arrN[i];
-                arrN[i] = arrN[i] + 1;
-                if (n < 0 || n >= srcSize)
-                {
-                    weight= 0.0f;// Flag that cell should not be used
-                }
-
-                arrPixel[subindex + k] = n;
-                arrWeight[subindex + k] = weight;
-            }
-            // normalize the filter's weight's so the sum equals to 1.0, very important for avoiding box type of artifacts
-            int max = arrN[i];
-            float tot = 0;
-            for (int k = 0; k < max; ++k)
-            {
-                tot += arrWeight[subindex + k];
-            }
-            if (tot != 0.0f)
-            {
-                // 0 should never happen except bug in filter
-                for (int k = 0; k < max; ++k)
-                {
-                    arrWeight[subindex + k] = arrWeight[subindex + k] / tot;
-                }
-            }
+        if (weight == 0.0f) {
+          continue;
         }
-    }
-    else
-    {
-        // scale up -> super-sampling
-        numContributors = (int)((fwidth * 2.0f) + 1);
-        arrWeight = QList<float>(dstSize * numContributors);
-        arrPixel = QList<int>(dstSize * numContributors);
-        //
-        for (int i = 0; i < dstSize; ++i)
-        {
-            arrN[i] = 0;
-            int subindex = i * numContributors;
-            float center = i / scale;
-            int left = (int)floor(center - fwidth);
-            int right = (int)ceil(center + fwidth);
-            for (int j = left; j <= right; ++j)
-            {
-                float weight = internalFilter.value(center - j);
-                if (weight == 0.0f)
-                {
-                    continue;
-                }
-                int n;
-                if (j < 0)
-                {
-                    n = -j;
-                }
-                else if (j >= srcSize)
-                {
-                    n = ((srcSize - j) + srcSize) - 1;
-                }
-                else
-                {
-                    n = j;
-                }
-
-                int k = arrN[i];
-                arrN[i] = arrN[i]+ 1;
-                if (n < 0 || n >= srcSize)
-                {
-                    weight= 0.0f;// Flag that cell should not be used
-                }
-
-                arrPixel[subindex + k] = n;
-                arrWeight[subindex + k] = weight;
-            }
-            // normalize the filter's weights so the sum equals to 1.0, very important for avoiding box type of artifacts
-            int max = arrN[i];
-            float tot = 0;
-            for (int k = 0; k < max; ++k)
-            {
-                tot += arrWeight[subindex + k];
-            }
-            if (tot != 0.0f)
-            {
-                for (int k = 0; k < max; ++k)
-                {
-                    arrWeight[subindex + k] = arrWeight[subindex + k] / tot;
-                }
-            }
+        int n;
+        if (j < 0) {
+          n = -j;
         }
+        else if (j >= srcSize) {
+          n = ((srcSize - j) + srcSize) - 1;
+        }
+        else {
+          n = j;
+        }
+
+        int k = arrN[i];
+        arrN[i] = arrN[i] + 1;
+        if (n < 0 || n >= srcSize) {
+          weight = 0.0f;  // Flag that cell should not be used
+        }
+
+        arrPixel[subindex + k] = n;
+        arrWeight[subindex + k] = weight;
+      }
+      // normalize the filter's weight's so the sum equals to 1.0, very important for avoiding box type of artifacts
+      int max = arrN[i];
+      float tot = 0;
+      for (int k = 0; k < max; ++k) {
+        tot += arrWeight[subindex + k];
+      }
+      if (tot != 0.0f) {
+        // 0 should never happen except bug in filter
+        for (int k = 0; k < max; ++k) {
+          arrWeight[subindex + k] = arrWeight[subindex + k] / tot;
+        }
+      }
     }
-    return SubSamplingData(arrN, arrPixel, arrWeight, numContributors);
+  }
+  else {
+    // scale up -> super-sampling
+    numContributors = (int)((fwidth * 2.0f) + 1);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    arrWeight = QVector<float>(dstSize * numContributors);
+    arrPixel = QVector<int>(dstSize * numContributors);
+#else
+    arrWeight = QList<float>(dstSize * numContributors);
+    arrPixel = QList<int>(dstSize * numContributors);
+#endif
+    //
+    for (int i = 0; i < dstSize; ++i) {
+      arrN[i] = 0;
+      int subindex = i * numContributors;
+      float center = i / scale;
+      int left = (int)floor(center - fwidth);
+      int right = (int)ceil(center + fwidth);
+      for (int j = left; j <= right; ++j) {
+        float weight = internalFilter.value(center - j);
+        if (weight == 0.0f) {
+          continue;
+        }
+        int n;
+        if (j < 0) {
+          n = -j;
+        }
+        else if (j >= srcSize) {
+          n = ((srcSize - j) + srcSize) - 1;
+        }
+        else {
+          n = j;
+        }
+
+        int k = arrN[i];
+        arrN[i] = arrN[i] + 1;
+        if (n < 0 || n >= srcSize) {
+          weight = 0.0f;  // Flag that cell should not be used
+        }
+
+        arrPixel[subindex + k] = n;
+        arrWeight[subindex + k] = weight;
+      }
+      // normalize the filter's weights so the sum equals to 1.0, very important for avoiding box type of artifacts
+      int max = arrN[i];
+      float tot = 0;
+      for (int k = 0; k < max; ++k) {
+        tot += arrWeight[subindex + k];
+      }
+      if (tot != 0.0f) {
+        for (int k = 0; k < max; ++k) {
+          arrWeight[subindex + k] = arrWeight[subindex + k] / tot;
+        }
+      }
+    }
+  }
+  return SubSamplingData(arrN, arrPixel, arrWeight, numContributors);
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void FilterOp::filterVertically(
+  QVector<QRgb> &src, QVector<QRgb> &trg)
+#else
 void FilterOp::filterVertically(QList<QRgb>& src, QList<QRgb>& trg)
+#endif
 {
     const QRgb *inPixels = src.constData();
 

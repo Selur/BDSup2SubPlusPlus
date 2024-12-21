@@ -49,25 +49,37 @@ Palette::Palette(int paletteSize, bool use601) :
     useBT601(use601),
     colors(paletteSize, 0)
 {
-    QList<int> yCbCr;
-    for (int i = 0; i < paletteSize; ++i)
-    {
-        yCbCr = Palette::RGB2YCbCr(qRgb(0, 0, 0), useBT601);
-        y.push_back(yCbCr[0]);
-        cb.push_back(yCbCr[1]);
-        cr.push_back(yCbCr[2]);
-    }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> yCbCr;
+#else
+  QList<int> yCbCr;
+#endif
+  for (int i = 0; i < paletteSize; ++i) {
+    yCbCr = Palette::RGB2YCbCr(qRgb(0, 0, 0), useBT601);
+    y.push_back(yCbCr[0]);
+    cb.push_back(yCbCr[1]);
+    cr.push_back(yCbCr[2]);
+  }
 }
-
-Palette::Palette(QList<uchar> inRed, QList<uchar> inGreen, QList<uchar> inBlue, QList<uchar> inAlpha, bool use601) :
-    useBT601(use601)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+Palette::Palette(
+  QVector<uchar> inRed, QVector<uchar> inGreen, QVector<uchar> inBlue, QVector<uchar> inAlpha, bool use601)
+  : useBT601(use601)
+#else
+Palette::Palette(
+  QList<uchar> inRed, QList<uchar> inGreen, QList<uchar> inBlue, QList<uchar> inAlpha, bool use601)
+  : useBT601(use601)
+#endif
 {
     for (int i = 0; i < inRed.size(); ++i)
     {
         colors.push_back(qRgba(inRed.at(i), inGreen.at(i), inBlue.at(i), inAlpha.at(i)));
     }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> yCbCr;
+#else
     QList<int> yCbCr;
+#endif
     for (int i = 0; i < colors.size(); ++i)
     {
         yCbCr = RGB2YCbCr(colors.at(i), useBT601);
@@ -94,64 +106,66 @@ void Palette::setAlpha(int index, int alpha)
 void Palette::setRGB(int index, QRgb rgb)
 {
     colors.replace(index, qRgba(qRed(rgb), qGreen(rgb), qBlue(rgb), qAlpha(colors.at(index))));
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> yCbCr = RGB2YCbCr(rgb, useBT601);
+#else
     QList<int> yCbCr = RGB2YCbCr(rgb, useBT601);
+#endif
     y.replace(index, yCbCr[0]);
     cb.replace(index, yCbCr[1]);
     cr.replace(index, yCbCr[2]);
 }
-
-QList<int> Palette::RGB2YCbCr(QRgb rgb, bool use601)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> Palette::RGB2YCbCr(
+  QRgb rgb, bool use601)
 {
-    QList<int> yCbCr;
-    double y, cb, cr;
-    int r = qRed(rgb);
-    int g = qGreen(rgb);
-    int b = qBlue(rgb);
+  QVector<int> yCbCr;
+#else
+QList<int> Palette::RGB2YCbCr(
+  QRgb rgb, bool use601)
+{
+  QList<int> yCbCr;
+#endif
+  double y, cb, cr;
+  int r = qRed(rgb);
+  int g = qGreen(rgb);
+  int b = qBlue(rgb);
 
-    if (use601)
-    {
-        /* BT.601 for RGB 0..255 (PC) -> YCbCr 16..235 */
-        y = (((r * 0.299) * 219) / 255) + (((g * 0.587) * 219) / 255) + (((b * 0.114) * 219) / 255);
-        cb = (((-r * 0.168736) * 224) / 255) - (((g * 0.331264) * 224) / 255) + (((b * 0.5) * 224) / 255);
-        cr = (((r * 0.5) * 224) / 255) - (((g * 0.418688) * 224) / 255) - (((b * 0.081312) * 224) / 255);
-    }
-    else
-    {
-        /* BT.709 for RGB 0..255 (PC) -> YCbCr 16..235 */
-        y = (((r * 0.2126) * 219) / 255) + (((g * 0.7152) * 219) / 255) + (((b * 0.0722) * 219) / 255);
-        cb = ((((-r * 0.2126) / 1.8556) * 224) / 255) - ((((g * 0.7152) / 1.8556) * 224) / 255) + (((b * 0.5) * 224) / 255);
-        cr =  (((r * 0.5) * 224) / 255) - ((((g * 0.7152) / 1.5748) * 224) / 255) - ((((b * 0.0722) / 1.5748) * 224) / 255);
-    }
-    yCbCr.push_back(16 + (int)(y + .5));
-    yCbCr.push_back(128 + (int)(cb + .5));
-    yCbCr.push_back(128 + (int)(cr + .5));
+  if (use601) {
+    /* BT.601 for RGB 0..255 (PC) -> YCbCr 16..235 */
+    y = (((r * 0.299) * 219) / 255) + (((g * 0.587) * 219) / 255) + (((b * 0.114) * 219) / 255);
+    cb = (((-r * 0.168736) * 224) / 255) - (((g * 0.331264) * 224) / 255) + (((b * 0.5) * 224) / 255);
+    cr = (((r * 0.5) * 224) / 255) - (((g * 0.418688) * 224) / 255) - (((b * 0.081312) * 224) / 255);
+  }
+  else {
+    /* BT.709 for RGB 0..255 (PC) -> YCbCr 16..235 */
+    y = (((r * 0.2126) * 219) / 255) + (((g * 0.7152) * 219) / 255) + (((b * 0.0722) * 219) / 255);
+    cb = ((((-r * 0.2126) / 1.8556) * 224) / 255) - ((((g * 0.7152) / 1.8556) * 224) / 255) + (((b * 0.5) * 224) / 255);
+    cr = (((r * 0.5) * 224) / 255) - ((((g * 0.7152) / 1.5748) * 224) / 255) - ((((b * 0.0722) / 1.5748) * 224) / 255);
+  }
+  yCbCr.push_back(16 + (int)(y + .5));
+  yCbCr.push_back(128 + (int)(cb + .5));
+  yCbCr.push_back(128 + (int)(cr + .5));
 
-    for (int i = 0; i < yCbCr.size(); ++i)
-    {
-        if (yCbCr[i] < 16)
-        {
-            yCbCr.replace(i, 16);
+  for (int i = 0; i < yCbCr.size(); ++i) {
+    if (yCbCr[i] < 16) {
+      yCbCr.replace(i, 16);
+    }
+    else {
+      if (i == 0) {
+        if (yCbCr[i] > 235) {
+          yCbCr.replace(i, 235);
         }
-        else
-        {
-            if (i == 0)
-            {
-                if (yCbCr[i] > 235)
-                {
-                    yCbCr.replace(i, 235);
-                }
-            }
-            else
-            {
-                if (yCbCr[i] > 240)
-                {
-                    yCbCr.replace(i, 240);
-                }
-            }
+      }
+      else {
+        if (yCbCr[i] > 240) {
+          yCbCr.replace(i, 240);
         }
+      }
     }
+  }
 
-    return yCbCr;
+  return yCbCr;
 }
 
 QRgb Palette::YCbCr2RGB(int y, int cb, int cr, bool useBT601)
@@ -228,12 +242,19 @@ void Palette::setYCbCr(int index, int yn, int cbn, int crn)
 
     colors.replace(index, qRgba(qRed(rgb), qGreen(rgb), qBlue(rgb), qAlpha(colors.at(index))));
 }
-
-QList<int> Palette::YCbCr(int index)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> Palette::YCbCr(
+  int index)
 {
-    QList<int> yCbCr;
-    yCbCr.push_back(y[index] & 0xff);
-    yCbCr.push_back(cb[index] & 0xff);
-    yCbCr.push_back(cr[index] & 0xff);
-    return yCbCr;
+  QVector<int> yCbCr;
+#else
+QList<int> Palette::YCbCr(
+  int index)
+{
+  QList<int> yCbCr;
+#endif
+  yCbCr.push_back(y[index] & 0xff);
+  yCbCr.push_back(cb[index] & 0xff);
+  yCbCr.push_back(cr[index] & 0xff);
+  return yCbCr;
 }

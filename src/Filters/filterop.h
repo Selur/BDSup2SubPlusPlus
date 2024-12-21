@@ -21,8 +21,11 @@
 #define FILTEROP_H
 
 #include <QColor>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
-
+#endif
 class Bitmap;
 class Filter;
 class Palette;
@@ -32,22 +35,34 @@ class FilterOp
 {
 public:
     FilterOp(Filter& filter);
-
-    QList<QRgb> filter(Bitmap &src, Palette &palette, int w, int h);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> filter(Bitmap& src, Palette& palette, int w, int h);
+#else
+    QList<QRgb> filter(Bitmap& src, Palette& palette, int w, int h);
+#endif
     class SubSamplingData {
     public:
         SubSamplingData() { }
-        SubSamplingData(QList<int>& s, QList<int>& p, QList<float>& w, int width) :
-            matrixWidth(width),
-            numberOfSamples(s),
-            pixelPositions(p),
-            weights(w)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        SubSamplingData(
+          QVector<int>& s, QVector<int>& p, QVector<float>& w, int width)
+          : matrixWidth(width), numberOfSamples(s), pixelPositions(p), weights(w)
+        {
+        }
+        int matrixWidth = 0;
+        QVector<int> numberOfSamples;
+        QVector<int> pixelPositions;
+        QVector<float> weights;
+#else
+        SubSamplingData(
+          QList<int>& s, QList<int>& p, QList<float>& w, int width)
+          : matrixWidth(width), numberOfSamples(s), pixelPositions(p), weights(w)
         { }
         int matrixWidth = 0;
         QList<int> numberOfSamples;
         QList<int> pixelPositions;
         QList<float> weights;
+#endif
     };
 
 private:
@@ -60,10 +75,12 @@ private:
 
     SubSamplingData horizontalSubsamplingData;
     SubSamplingData verticalSubsamplingData;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    void filterVertically(QVector<QRgb>& src, QVector<QRgb>& trg);
+#else
     void filterVertically(QList<QRgb>& src, QList<QRgb>& trg);
-    void filterHorizontally(QImage &src, QRgb *trg, const QRgb *rgba);
-
+#endif
+    void filterHorizontally(QImage& src, QRgb* trg, const QRgb* rgba);
     SubSamplingData createSubSampling(int srcSize, int dstSize, float scale);
 };
 

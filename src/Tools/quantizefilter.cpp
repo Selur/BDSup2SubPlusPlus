@@ -21,20 +21,31 @@
 
 #include <algorithm>
 #include <QHash>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 
 void QuantizeFilter::setNumColors(int numColors)
 {
     this->_numColors = std::min(std::max(numColors, 8), 256);
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<QRgb> QuantizeFilter::quantize(
+  QImage inImage, QImage* outImage, int width, int height, int numColors, bool dither, bool serpentine)
+#else
 QList<QRgb> QuantizeFilter::quantize(QImage inImage, QImage *outImage, int width, int height,
                                       int numColors, bool dither, bool serpentine)
+#endif
 {
     quantizer.setup(numColors);
     quantizer.addPixels(inImage);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> table = quantizer.buildColorTable();
+#else
     QList<QRgb> table = quantizer.buildColorTable();
-
+#endif
     QRgb *inPixels = 0;
     int sourcePitch = inImage.bytesPerLine() / 4;
 
@@ -129,8 +140,11 @@ QList<QRgb> QuantizeFilter::quantize(QImage inImage, QImage *outImage, int width
     }
 
     // create palette
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> p;
+#else
     QList<QRgb> p;
-
+#endif
     inPixels = (QRgb*)inImage.scanLine(0);
     outPixels = outImage->scanLine(0);
 
@@ -247,14 +261,24 @@ int QuantizeFilter::OctTreeQuantizer::indexForColor(QRgb argb)
     return 0;
 }
 
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<QRgb> QuantizeFilter::OctTreeQuantizer::buildColorTable()
+{
+  QVector<QRgb> table(colors);
+#else
 QList<QRgb> QuantizeFilter::OctTreeQuantizer::buildColorTable()
 {
-    QList<QRgb> table(colors);
-    buildColorTable(root, table, 0);
-    return table;
+  QList<QRgb> table(colors);
+#endif
+  buildColorTable(root, table, 0);
+  return table;
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void QuantizeFilter::OctTreeQuantizer::buildColorTable(
+  QVector<QRgb> inPixels, QVector<QRgb>& table)
+#else
 void QuantizeFilter::OctTreeQuantizer::buildColorTable(QList<QRgb> inPixels, QList<QRgb>& table)
+#endif
 {
     int count = inPixels.size();
     maximumColors = table.size();
@@ -353,44 +377,46 @@ void QuantizeFilter::OctTreeQuantizer::reduceTree(int numColors)
 {
     for (int level = MAX_LEVEL - 1; level >= 0; --level)
     {
-        QList<OctTreeNode*> v = colorList[level];
-        if (!v.isEmpty())
-        {
-            for (int j = 0; j < v.size(); j++)
-            {
-                OctTreeNode* node = v.at(j);
-                if (node->children > 0)
-                {
-                    for (int i = 0; i < node->leaf.size(); i++)
-                    {
-                        OctTreeNode* child = node->leaf[i];
-                        if (child != 0)
-                        {
-                            node->count += child->count;
-                            node->totalAlpha += child->totalAlpha;
-                            node->totalRed += child->totalRed;
-                            node->totalGreen += child->totalGreen;
-                            node->totalBlue += child->totalBlue;
-                            node->leaf[i] = 0;
-                            node->children--;
-                            --colors;
-                            --nodes;
-                            colorList[level + 1].remove(colorList[level + 1].indexOf(child));
-                        }
-                    }
-                    node->isLeaf = true;
-                    ++colors;
-                    if (colors <= numColors)
-                    {
-                        return;
-                    }
-                }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<OctTreeNode*> v = colorList[level];
+#else
+      QList<OctTreeNode*> v = colorList[level];
+#endif
+      if (!v.isEmpty()) {
+        for (int j = 0; j < v.size(); j++) {
+          OctTreeNode* node = v.at(j);
+          if (node->children > 0) {
+            for (int i = 0; i < node->leaf.size(); i++) {
+              OctTreeNode* child = node->leaf[i];
+              if (child != 0) {
+                node->count += child->count;
+                node->totalAlpha += child->totalAlpha;
+                node->totalRed += child->totalRed;
+                node->totalGreen += child->totalGreen;
+                node->totalBlue += child->totalBlue;
+                node->leaf[i] = 0;
+                node->children--;
+                --colors;
+                --nodes;
+                colorList[level + 1].remove(colorList[level + 1].indexOf(child));
+              }
             }
+            node->isLeaf = true;
+            ++colors;
+            if (colors <= numColors) {
+              return;
+            }
+          }
         }
+      }
     }
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+int QuantizeFilter::OctTreeQuantizer::buildColorTable(
+  QuantizeFilter::OctTreeQuantizer::OctTreeNode* node, QVector<QRgb>& table, int index)
+#else
 int QuantizeFilter::OctTreeQuantizer::buildColorTable(QuantizeFilter::OctTreeQuantizer::OctTreeNode *node, QList<QRgb>& table, int index)
+#endif
 {
     if (colors > maximumColors)
     {

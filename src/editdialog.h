@@ -32,7 +32,11 @@ class SubPicture;
 class QImage;
 class QDoubleValidator;
 class QIntValidator;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+class QRegExpValidator;
+#else
 class QRegularExpressionValidator;
+#endif
 class QPalette;
 
 namespace Ui {
@@ -101,8 +105,13 @@ private:
     QDoubleValidator* durationValidator;
     QIntValidator* xOffsetValidator;
     QIntValidator* yOffsetValidator;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QRegExpValidator* startTimeValidator;
+    QRegExpValidator* endTimeValidator;
+#else
     QRegularExpressionValidator* startTimeValidator;
     QRegularExpressionValidator* endTimeValidator;
+#endif
     QPalette* errorBackground;
     QPalette* warnBackground;
     QPalette* okBackground;

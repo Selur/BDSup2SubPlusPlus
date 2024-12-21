@@ -29,8 +29,11 @@
 #include <QKeyEvent>
 #include <QDoubleValidator>
 #include <QIntValidator>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QRegExpValidator>
+#else
 #include <QRegularExpressionValidator>
-
+#endif
 EditDialog::EditDialog(QWidget *parent, SubtitleProcessor* subtitleProcessor) :
     QDialog(parent),
     ui(new Ui::EditDialog)
@@ -67,12 +70,20 @@ EditDialog::EditDialog(QWidget *parent, SubtitleProcessor* subtitleProcessor) :
     ui->xOffsetLineEdit->setValidator(xOffsetValidator);
     yOffsetValidator = new QIntValidator;
     ui->yOffsetLineEdit->setValidator(yOffsetValidator);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    startTimeValidator = new QRegExpValidator(TimeUtil::getTimePattern());
+#else
     startTimeValidator = new QRegularExpressionValidator();
     QRegularExpression pattern(TimeUtil::getTimePattern().pattern());
     startTimeValidator->setRegularExpression(pattern);
+#endif
     ui->startTimeLineEdit->setValidator(startTimeValidator);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    endTimeValidator = new QRegExpValidator(TimeUtil::getTimePattern());
+#else
     endTimeValidator = new QRegularExpressionValidator();
     endTimeValidator->setRegularExpression(pattern);
+#endif
     ui->endTimeLineEdit->setValidator(endTimeValidator);
 
     this->resize(minimumWidth + 36, minimumHeight + 280);
@@ -392,25 +403,28 @@ void EditDialog::on_okButton_clicked()
 
 void EditDialog::on_addErasePatchButton_clicked()
 {
-    QList<int> selectionCoordinates = ui->subtitleImage->getSelection();
-    if (!selectionCoordinates.isEmpty())
-    {
-        ErasePatch* ep = new ErasePatch(selectionCoordinates[0], selectionCoordinates[1],
-                                       (selectionCoordinates[2] - selectionCoordinates[0]) + 1,
-                                       (selectionCoordinates[3] - selectionCoordinates[1]) + 1);
-        subPicture->erasePatch.push_back(ep);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> selectionCoordinates = ui->subtitleImage->getSelection();
+#else
+  QList<int> selectionCoordinates = ui->subtitleImage->getSelection();
+#endif
+  if (!selectionCoordinates.isEmpty()) {
+    ErasePatch *ep
+      = new ErasePatch(selectionCoordinates[0], selectionCoordinates[1], (selectionCoordinates[2] - selectionCoordinates[0]) + 1,
+                       (selectionCoordinates[3] - selectionCoordinates[1]) + 1);
+    subPicture->erasePatch.push_back(ep);
 
-        ui->undoErasePatchButton->setEnabled(true);
-        ui->undoAllErasePatchesButton->setEnabled(true);
+    ui->undoErasePatchButton->setEnabled(true);
+    ui->undoAllErasePatchesButton->setEnabled(true);
 
-        image = subtitleProcessor->getTrgImagePatched(subPicture);
-        ui->subtitleImage->setImage(image, subPicture->imageWidth(), subPicture->imageHeight());
+    image = subtitleProcessor->getTrgImagePatched(subPicture);
+    ui->subtitleImage->setImage(image, subPicture->imageWidth(), subPicture->imageHeight());
 
-        setEdited(true);
-    }
-    ui->addErasePatchButton->setEnabled(false);
-    ui->subtitleImage->removeSelection();
-    ui->subtitleImage->update();
+    setEdited(true);
+  }
+  ui->addErasePatchButton->setEnabled(false);
+  ui->subtitleImage->removeSelection();
+  ui->subtitleImage->update();
 }
 
 void EditDialog::on_undoErasePatchButton_clicked()

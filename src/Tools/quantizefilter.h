@@ -22,15 +22,20 @@
 
 #include <QColor>
 #include <QImage>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
-
+#endif
 /**
  * Floyd-Steinberg dithering matrix.
  */
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+static QVector<int> matrix = {
+#else
 static QList<int> matrix = {
-    0, 0, 0,
-    0, 0, 7,
-    3, 5, 1,
+#endif
+  0, 0, 0, 0, 0, 7, 3, 5, 1,
 };
 
 class QuantizeFilter
@@ -42,7 +47,11 @@ class QuantizeFilter
             int children = 0;
             int level = 0;
             OctTreeNode* parent = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+            QVector<OctTreeNode*> leaf = QVector<OctTreeNode*>(16);
+#else
             QList<OctTreeNode*> leaf = QList<OctTreeNode*>(16);
+#endif
             bool isLeaf = false;
             int count = 0;
             int totalAlpha = 0;
@@ -65,14 +74,20 @@ class QuantizeFilter
             }
         }
         void addPixels(QImage &image);
-        void buildColorTable(QList<QRgb> inPixels, QList<QRgb> &table);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        void buildColorTable(QVector<QRgb> inPixels, QVector<QRgb>& table);
+#else
+        void buildColorTable(QList<QRgb> inPixels, QList<QRgb>& table);
+#endif
         void setup(int numColors);
 
         int indexForColor(QRgb argb);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<QRgb> buildColorTable();
+#else
         QList<QRgb> buildColorTable();
-
-    private:
+#endif
+      private:
         static constexpr int MAX_LEVEL = 5;
 
         int colors = 0;
@@ -81,46 +96,61 @@ class QuantizeFilter
         int reduceColors = 512;
 
         OctTreeNode* root = new OctTreeNode;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<QVector<OctTreeNode*>> colorList = QVector<QVector<OctTreeNode*>>(MAX_LEVEL + 1);
+#else
         QList<QList<OctTreeNode*>> colorList = QList<QList<OctTreeNode*>>(MAX_LEVEL + 1);
-
+#endif
         void insertColor(QRgb rgb);
         void reduceTree(int numColors);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        int buildColorTable(OctTreeNode* node, QVector<QRgb>& table, int index);
+    } quantizer;
+#else
         int buildColorTable(OctTreeNode* node, QList<QRgb>& table, int index);
-    }quantizer;
+    } quantizer;
+#endif
 
-public:
-     void setNumColors(int numColors);
-     void setDither(bool dither) { this->dither = dither; }
-     void setSerpentine(bool serpentine) { this->serpentine = serpentine; }
+  public:
+    void setNumColors(int numColors);
+    void setDither(
+      bool dither)
+    {
+      this->dither = dither;
+    }
+    void setSerpentine(
+      bool serpentine)
+    {
+      this->serpentine = serpentine;
+    }
 
-     int clamp(int c)
-     {
-         if (c < 0)
-         {
-             return 0;
-         }
-         if (c > 255)
-         {
-             return 255;
-         }
-         return c;
-     }
+    int clamp(
+      int c)
+    {
+      if (c < 0) {
+        return 0;
+      }
+      if (c > 255) {
+        return 255;
+      }
+      return c;
+    }
 
-     int numColors() { return _numColors; }
+    int numColors() { return _numColors; }
 
-     bool getDither() { return dither; }
-     bool getSerpentine() { return serpentine; }
+    bool getDither() { return dither; }
+    bool getSerpentine() { return serpentine; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> quantize(QImage inImage, QImage* outImage, int width, int height, int numColors, bool dither, bool serpentine);
+#else
+    QList<QRgb> quantize(QImage inImage, QImage* outImage, int width, int height, int numColors, bool dither, bool serpentine);
+#endif
+  private:
+    static constexpr int sum = 3 + 5 + 7 + 1;
+    int _numColors = 255;
 
-     QList<QRgb> quantize(QImage inImage, QImage *outImage, int width, int height,
-                           int numColors, bool dither, bool serpentine);
-
-private:
-     static constexpr int sum = 3 + 5 + 7 + 1;
-     int _numColors = 255;
-
-     bool dither = false;
-     bool serpentine = true;
+    bool dither = false;
+    bool serpentine = true;
 };
 
 #endif // QUANTIZEFILTER_H

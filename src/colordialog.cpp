@@ -50,8 +50,13 @@ ColorDialog::~ColorDialog()
 {
     delete ui;
 }
-
-void ColorDialog::setParameters(QStringList names, QList<QColor> currentColor, QList<QColor> defaultColor)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void ColorDialog::setParameters(
+  QStringList names, QVector<QColor> currentColor, QVector<QColor> defaultColor)
+#else
+void ColorDialog::setParameters(
+  QStringList names, QList<QColor> currentColor, QList<QColor> defaultColor)
+#endif
 {
     QPixmap* pixmap;
     colorNames = names;

@@ -34,7 +34,12 @@
 #endif
 #include <QStringList>
 #include <QString>
+
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 #include <QScopedPointer>
 
 class SubtitleProcessor;
@@ -73,9 +78,11 @@ class SupXML : public QObject, public Substream
         QStringList xmlStates = { "bdn", "description", "name", "language", "format", "events", "event", "graphic" };
 
         QString txt;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> getResolutions(Resolution resolution);
+#else
         QList<int> getResolutions(Resolution resolution);
-
+#endif
         Resolution getResolution (QString string);
 
         SubPictureXML *subPicture = nullptr;
@@ -94,8 +101,11 @@ public:
 
     void decode(int index);
     void readAllImages();
-    void writeXml(QString filename, QList<SubPicture*> pics);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    void writeXml(QString filename, QVector<SubPicture *> pics);
+#else
+    void writeXml(QString filename, QList<SubPicture *> pics);
+#endif
     int primaryColorIndex() { return _primaryColorIndex; }
     int numFrames();
     int numForcedFrames() { return _numForcedFrames; }
@@ -140,9 +150,11 @@ private:
     QString pathName;
     QString language = "deu";
     QString xmlFileName;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<SubPictureXML> subPictures;
+#else
     QList<SubPictureXML> subPictures;
-
+#endif
     Resolution resolution;
 
     SubtitleProcessor* subtitleProcessor = 0;

@@ -21,12 +21,17 @@
 #define TIMEUTIL_H
 
 #include <QString>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QRegExp>
+#include <QVector>
+
+static QRegExp timePattern = QRegExp("(\\d+):(\\d+):(\\d+)[:\\.](\\d+)");
+#else
+#include <QList>
 #include <QRegularExpression>
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-template <typename T> class QList;
-#endif
 
 static QRegularExpression timePattern = QRegularExpression("(\\d+):(\\d+):(\\d+)[:\\.](\\d+)");
+#endif
 
 class TimeUtil
 {
@@ -35,14 +40,19 @@ public:
 
     static qint64 timeStrToPTS(QString s, bool *ok = 0);
     static qint64 timeStrXmlToPTS(QString s, double fps);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    static QRegExp getTimePattern() { return timePattern; }
+#else
     static QRegularExpression getTimePattern() { return timePattern; }
-
+#endif
     static QString ptsToTimeStrXml(qint64 pts, double fps);
     static QString ptsToTimeStr(qint64 pts);
     static QString ptsToTimeStrIdx(qint64 pts);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    static QVector<int> msToTime(qint64 ms);
+#else
     static QList<int> msToTime(qint64 ms);
+#endif
 };
 
 #endif // TIMEUTIL_H

@@ -25,7 +25,11 @@
 #include "paletteinfo.h"
 #include "../types.h"
 
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 #include <QMap>
 
 class ImageObject;
@@ -42,7 +46,11 @@ struct PCS
     bool paletteUpdate = false;
     int paletteId;
     int numberOfCompositionObjects;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> objectIds;
+#else
     QList<int> objectIds;
+#endif
     QMap<int, int> windowIds;       // map of object id to window id
     QMap<int, int> forcedFlags;     // map of object id to forced flag
     QMap<int, int> xPositions;      // map of object id to x position
@@ -52,7 +60,11 @@ struct PCS
 struct WDS
 {
     int numberOfWindows;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> windowIds;
+#else
     QList<int> windowIds;
+#endif
     QMap<int, QRect> windows;
 };
 
@@ -179,14 +191,20 @@ public:
             }
         }
     }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    void setData(const PCS& pcs, QMap<int, QVector<ODS>> ods, QMap<int, QVector<PaletteInfo>> pds, const WDS& wds);
 
-    void setData(const PCS &pcs, QMap<int, QList<ODS>> ods, QMap<int, QList<PaletteInfo>> pds, const WDS &wds);
+    QMap<int, ImageObject> imageObjectList;
+
+    QMap<int, QVector<PaletteInfo>> palettes;
+#else
+    void setData(const PCS& pcs, QMap<int, QList<ODS>> ods, QMap<int, QList<PaletteInfo>> pds, const WDS& wds);
 
     QMap<int, ImageObject> imageObjectList;
 
     QMap<int, QList<PaletteInfo>> palettes;
-
-private:
+#endif
+  private:
     int type = 0;
     bool paletteUpdate = false;
     CompositionState compState;

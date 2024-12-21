@@ -221,17 +221,21 @@ void EditPane::setImage(const QImage &image, int width, int height)
     imgHeight = height;
     update();
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> EditPane::getSelection()
+{
+  QVector<int> selectionCoordinates;
+#else
 QList<int> EditPane::getSelection()
 {
-    QList<int> selectionCoordinates;
-    if (!allowSelection || !validSelection)
-    {
-        return selectionCoordinates;
-    }
-    selectionCoordinates.push_back(selectStartX - ofsX);
-    selectionCoordinates.push_back(selectStartY - yCrop);
-    selectionCoordinates.push_back(selectEndX - ofsX);
-    selectionCoordinates.push_back(selectEndY - yCrop);
+  QList<int> selectionCoordinates;
+#endif
+  if (!allowSelection || !validSelection) {
     return selectionCoordinates;
+  }
+  selectionCoordinates.push_back(selectStartX - ofsX);
+  selectionCoordinates.push_back(selectStartY - yCrop);
+  selectionCoordinates.push_back(selectEndX - ofsX);
+  selectionCoordinates.push_back(selectEndY - yCrop);
+  return selectionCoordinates;
 }

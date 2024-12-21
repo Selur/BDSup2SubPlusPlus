@@ -21,9 +21,12 @@
 #define BITMAP_H
 
 #include <QImage>
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-template <typename T> class QList;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
+#include <QList>
 #endif
+
 class Filter;
 class Palette;
 class PaletteBitmap;
@@ -50,15 +53,23 @@ public:
     int primaryColorIndex(Palette &palette, int alphaThreshold);
 
     Bitmap crop(int x1, int y1, int width, int height);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    Bitmap convertLm(Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold);
+#else
     Bitmap convertLm(Palette &palette, int alphaThreshold, QList<int> &lumaThreshold);
-
+#endif
     Bitmap scaleFilter(int sizeX, int sizeY, Palette &palette, Filter &filter);
-    Bitmap scaleFilterLm(int sizeX, int sizeY, Palette &palette,
-                          int alphaThreshold, QList<int> &lumaThreshold, Filter& filter);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    Bitmap scaleFilterLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold, Filter &filter);
+#else
+    Bitmap scaleFilterLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold, Filter &filter);
+#endif
     Bitmap scaleBilinear(int sizeX, int sizeY, Palette &palette);
-    Bitmap scaleBilinearLm(int sizeX, int sizeY, Palette &palette,
-                            int alphaThreshold, QList<int> &lumaThreshold);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    Bitmap scaleBilinearLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold);
+#else
+    Bitmap scaleBilinearLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold);
+#endif
     PaletteBitmap scaleFilter(int sizeX, int sizeY, Palette &palette, Filter &filter, bool dither);
     PaletteBitmap scaleBilinear(int sizeX, int sizeY, Palette &palette, bool dither);
 

@@ -27,7 +27,11 @@
 #include <QString>
 #include <QStringList>
 #include <QSharedPointer>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 #include <QSettings>
 
 class QTextStream;
@@ -53,14 +57,12 @@ enum class StreamID : int;
 enum class RunType : int;
 
 static QStringList resolutionNamesXml = { "480i", "576i", "720p", "1440x1080", "1080p" };
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+static QVector<QVector<int>> resolutions = {
+#else
 static QList<QList<int>> resolutions = {
-    {720, 480},
-    {720, 576},
-    {1280, 720},
-    {1440, 1080},
-    {1920, 1080}
-};
+#endif
+  {720, 480}, {720, 576}, {1280, 720}, {1440, 1080}, {1920, 1080}};
 
 static QStringList resolutionNames = {
     "NTSC (720x480)",
@@ -69,189 +71,56 @@ static QStringList resolutionNames = {
     "1080p- (1440x1080)",
     "1080p (1920x1080)"
 };
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+static QVector<QVector<QString>> languages = {{
+#else
 static QList<QList<QString>> languages = {{
-    {"German",       "de", "deu"},
-    {"English",      "en", "eng"},
-    {"French",       "fr", "fra"},
-    {"Italian",      "it", "ita"},
-    {"Spanish",      "es", "spa"},
-    {"Abkhazian",    "ab", "abk"},
-    {"Afar",         "aa", "aar"},
-    {"Afrikaans",    "af", "afr"},
-    {"Albanian",     "sq", "sqi"},
-    {"Amharic",      "am", "amh"},
-    {"Arabic",       "ar", "ara"},
-    {"Aragonese",    "an", "arg"},
-    {"Armenian",     "hy", "hye"},
-    {"Assamese",     "as", "asm"},
-    {"Avaric",       "av", "ava"},
-    {"Avestan",      "ae", "ave"},
-    {"Aymara",       "ay", "aym"},
-    {"Azerbaijani",  "az", "aze"},
-    {"Bambara",      "bm", "bam"},
-    {"Bashkir",      "ba", "bak"},
-    {"Basque",       "eu", "eus"},
-    {"Belarusian",   "be", "bel"},
-    {"Bengali",      "bn", "ben"},
-    {"Bihari",       "bh", "bih"},
-    {"Bislama",      "bi", "bis"},
-    {"Bosnian",      "bs", "bos"},
-    {"Breton",       "br", "bre"},
-    {"Bulgarian",    "bg", "bul"},
-    {"Burmese",      "my", "mya"},
-    {"Cambodian",    "km", "khm"},
-    {"Catalan",      "ca", "cat"},
-    {"Chamorro",     "ch", "cha"},
-    {"Chechen",      "ce", "che"},
-    {"Chichewa",     "ny", "nya"},
-    {"Chinese",      "zh", "zho"},
-    {"Chuvash",      "cv", "chv"},
-    {"Cornish",      "kw", "cor"},
-    {"Corsican",     "co", "cos"},
-    {"Cree",         "cr", "cre"},
-    {"Croatian",     "hr", "hrv"},
-    {"Czech",        "cs", "ces"},
-    {"Danish",       "da", "dan"},
-    {"Divehi",       "dv", "div"},
-    {"Dzongkha",     "dz", "dzo"},
-    {"Dutch",        "nl", "nld"},
-    {"Esperanto",    "eo", "epo"},
-    {"Estonian",     "et" ,"est"},
-    {"Ewe",          "ee", "ewe"},
-    {"Faroese",      "fo", "fao"},
-    {"Fiji",         "fj", "fij"},
-    {"Finnish",      "fi", "fin"},
-    {"Frisian",      "fy", "fry"},
-    {"Fulah",        "ff", "ful"},
-    {"Gaelic",       "gd", "gla"},
-    {"Galician",     "gl", "glg"},
-    {"Ganda",        "lg", "lug"},
-    {"Georgian",     "ka", "kat"},
-    {"Greek",        "el", "ell"},
-    {"Greenlandic",  "kl", "kal"},
-    {"Guarani",      "gn", "grn"},
-    {"Gujarati",     "gu", "guj"},
-    {"Haitian",      "ht", "hat"},
-    {"Hausa",        "ha", "hau"},
-    {"Hebrew",       "he", "heb"},
-    {"Herero",       "hz", "her"},
-    {"Hindi",        "hi", "hin"},
-    {"Hiri Motu",    "ho", "hmo"},
-    {"Hungarian",    "hu", "hun"},
-    {"Icelandic",    "is", "isl"},
-    {"Ido",          "io", "ido"},
-    {"Igbo",         "ig", "ibo"},
-    {"Indonesian",   "id", "ind"},
-    {"Interlingua",  "ia", "ina"},
-    {"Interlingue",  "ie", "ile"},
-    {"Inupiaq",      "ik", "ipk"},
-    {"Inuktitut",    "iu", "iku"},
-    {"Irish",        "ga", "gle"},
-    {"Japanese",     "ja", "jpn"},
-    {"Javanese",     "jv", "jav"},
-    {"Kannada",      "kn", "kan"},
-    {"Kanuri",       "kr", "kau"},
-    {"Kashmiri",     "ks", "kas"},
-    {"Kazakh",       "kk", "kaz"},
-    {"Kikuyu",       "ki", "kik"},
-    {"Kinyarwanda",  "rw", "kin"},
-    {"Kirghiz",      "ky", "kir"},
-    {"Komi",         "kv", "kom"},
-    {"Kongo",        "kg", "kon"},
-    {"Korean",       "ko", "kor"},
-    {"Kuanyama",     "kj", "kua"},
-    {"Kurdish",      "ku", "kur"},
-    {"Lao",          "lo", "lao"},
-    {"Latin",        "la", "lat"},
-    {"Latvian",      "lv", "lav"},
-    {"Limburgan",    "li", "lim"},
-    {"Lingala",      "ln", "lin"},
-    {"Lithuanian",   "lt", "lit"},
-    {"Luba",         "lu", "lub"},
-    {"Luxembourgish","lb", "ltz"},
-    {"Macedonian",   "mk", "mkd"},
-    {"Malagasy",     "mg", "mlg"},
-    {"Malay",        "ms", "msa"},
-    {"Malayalam",    "ml", "mal"},
-    {"Maltese",      "mt", "mlt"},
-    {"Marshallese",  "mh", "mah"},
-    {"Manx",         "gv", "glv"},
-    {"Maori",        "mi", "mri"},
-    {"Marathi",      "mr", "mar"},
-    {"Mongolian",    "mn", "mon"},
-    {"Nauru",        "na", "nau"},
-    {"Navajo",       "nv", "nav"},
-    {"Ndebele",      "nd", "nde"},
-    {"Ndonga",       "ng", "ndo"},
-    {"Nepali",       "ne", "nep"},
-    {"Norwegian",    "no", "nor"},
-    {"Occitan",      "oc", "oci"},
-    {"Ojibwa",       "oj", "oji"},
-    {"Oriya",        "or", "ori"},
-    {"Oromo",        "om", "orm"},
-    {"Ossetian",     "os", "oss"},
-    {"Pali",         "pi", "pli"},
-    {"Panjabi",      "pa", "pan"},
-    {"Pashto",       "ps", "pus"},
-    {"Persian",      "fa", "fas"},
-    {"Polish",       "pl", "pol"},
-    {"Portuguese",   "pt", "por"},
-    {"Quechua",      "qu", "que"},
-    {"Romansh",      "rm", "roh"},
-    {"Romanian",     "ro", "ron"},
-    {"Rundi",        "rn", "run"},
-    {"Russian",      "ru", "rus"},
-    {"Sami",         "se", "sme"},
-    {"Samoan",       "sm", "smo"},
-    {"Sango",        "sg", "sag"},
-    {"Sanskrit",     "sa", "san"},
-    {"Sardinian",    "sc", "srd"},
-    {"Serbian",      "sr", "srp"},
-    {"Shona",        "sn", "sna"},
-    {"Sichuan Yi",   "ii", "iii"},
-    {"Sindhi",       "sd", "snd"},
-    {"Sinhalese",    "si", "sin"},
-    {"Slavonic",     "cu", "chu"},
-    {"Slovak",       "sk", "slk"},
-    {"Slovenian",    "sl", "slv"},
-    {"Somali",       "so", "som"},
-    {"Sotho",        "st", "sot"},
-    {"Sundanese",    "su", "sun"},
-    {"Swahili",      "sw", "swa"},
-    {"Swati",        "ss", "ssw"},
-    {"Swedish",      "sv", "swe"},
-    {"Tagalog",      "tl", "tgl"},
-    {"Tahitian",     "ty", "tah"},
-    {"Tajik",        "tg", "tgk"},
-    {"Tamil",        "ta", "tam"},
-    {"Tatar",        "tt", "tar"},
-    {"Telugu",       "te", "tel"},
-    {"Thai",         "th", "tha"},
-    {"Tibetan",      "bo", "bod"},
-    {"Tigrinya",     "ti", "tir"},
-    {"Tonga",        "to", "ton"},
-    {"Tsonga",       "ts", "tso"},
-    {"Tswana",       "tn", "tsn"},
-    {"Turkish",      "tr", "tur"},
-    {"Turkmen",      "tk", "tuk"},
-    {"Twi",          "tw", "twi"},
-    {"Uighur",       "ug", "uig"},
-    {"Ukrainian",    "uk", "ukr"},
-    {"Urdu",         "ur", "urd"},
-    {"Uzbek",        "uz", "uzb"},
-    {"Venda",        "ve", "ven"},
-    {"Vietnamese",   "vi", "vie"},
-    {"Volapük",     "vo", "vol"},
-    {"Welsh",        "cy", "cym"},
-    {"Walloon",      "wa", "wln"},
-    {"Wolof",        "wo", "wol"},
-    {"Xhosa",        "xh", "xho"},
-    {"Yiddish",      "yi", "yid"},
-    {"Yoruba",       "yo", "yor"},
-    {"Zhuang",       "za", "zha"},
-    {"Zulu",         "zu", "zul"}
-}};
+#endif
+  {"German", "de", "deu"},      {"English", "en", "eng"},     {"French", "fr", "fra"},        {"Italian", "it", "ita"},
+  {"Spanish", "es", "spa"},     {"Abkhazian", "ab", "abk"},   {"Afar", "aa", "aar"},          {"Afrikaans", "af", "afr"},
+  {"Albanian", "sq", "sqi"},    {"Amharic", "am", "amh"},     {"Arabic", "ar", "ara"},        {"Aragonese", "an", "arg"},
+  {"Armenian", "hy", "hye"},    {"Assamese", "as", "asm"},    {"Avaric", "av", "ava"},        {"Avestan", "ae", "ave"},
+  {"Aymara", "ay", "aym"},      {"Azerbaijani", "az", "aze"}, {"Bambara", "bm", "bam"},       {"Bashkir", "ba", "bak"},
+  {"Basque", "eu", "eus"},      {"Belarusian", "be", "bel"},  {"Bengali", "bn", "ben"},       {"Bihari", "bh", "bih"},
+  {"Bislama", "bi", "bis"},     {"Bosnian", "bs", "bos"},     {"Breton", "br", "bre"},        {"Bulgarian", "bg", "bul"},
+  {"Burmese", "my", "mya"},     {"Cambodian", "km", "khm"},   {"Catalan", "ca", "cat"},       {"Chamorro", "ch", "cha"},
+  {"Chechen", "ce", "che"},     {"Chichewa", "ny", "nya"},    {"Chinese", "zh", "zho"},       {"Chuvash", "cv", "chv"},
+  {"Cornish", "kw", "cor"},     {"Corsican", "co", "cos"},    {"Cree", "cr", "cre"},          {"Croatian", "hr", "hrv"},
+  {"Czech", "cs", "ces"},       {"Danish", "da", "dan"},      {"Divehi", "dv", "div"},        {"Dzongkha", "dz", "dzo"},
+  {"Dutch", "nl", "nld"},       {"Esperanto", "eo", "epo"},   {"Estonian", "et", "est"},      {"Ewe", "ee", "ewe"},
+  {"Faroese", "fo", "fao"},     {"Fiji", "fj", "fij"},        {"Finnish", "fi", "fin"},       {"Frisian", "fy", "fry"},
+  {"Fulah", "ff", "ful"},       {"Gaelic", "gd", "gla"},      {"Galician", "gl", "glg"},      {"Ganda", "lg", "lug"},
+  {"Georgian", "ka", "kat"},    {"Greek", "el", "ell"},       {"Greenlandic", "kl", "kal"},   {"Guarani", "gn", "grn"},
+  {"Gujarati", "gu", "guj"},    {"Haitian", "ht", "hat"},     {"Hausa", "ha", "hau"},         {"Hebrew", "he", "heb"},
+  {"Herero", "hz", "her"},      {"Hindi", "hi", "hin"},       {"Hiri Motu", "ho", "hmo"},     {"Hungarian", "hu", "hun"},
+  {"Icelandic", "is", "isl"},   {"Ido", "io", "ido"},         {"Igbo", "ig", "ibo"},          {"Indonesian", "id", "ind"},
+  {"Interlingua", "ia", "ina"}, {"Interlingue", "ie", "ile"}, {"Inupiaq", "ik", "ipk"},       {"Inuktitut", "iu", "iku"},
+  {"Irish", "ga", "gle"},       {"Japanese", "ja", "jpn"},    {"Javanese", "jv", "jav"},      {"Kannada", "kn", "kan"},
+  {"Kanuri", "kr", "kau"},      {"Kashmiri", "ks", "kas"},    {"Kazakh", "kk", "kaz"},        {"Kikuyu", "ki", "kik"},
+  {"Kinyarwanda", "rw", "kin"}, {"Kirghiz", "ky", "kir"},     {"Komi", "kv", "kom"},          {"Kongo", "kg", "kon"},
+  {"Korean", "ko", "kor"},      {"Kuanyama", "kj", "kua"},    {"Kurdish", "ku", "kur"},       {"Lao", "lo", "lao"},
+  {"Latin", "la", "lat"},       {"Latvian", "lv", "lav"},     {"Limburgan", "li", "lim"},     {"Lingala", "ln", "lin"},
+  {"Lithuanian", "lt", "lit"},  {"Luba", "lu", "lub"},        {"Luxembourgish", "lb", "ltz"}, {"Macedonian", "mk", "mkd"},
+  {"Malagasy", "mg", "mlg"},    {"Malay", "ms", "msa"},       {"Malayalam", "ml", "mal"},     {"Maltese", "mt", "mlt"},
+  {"Marshallese", "mh", "mah"}, {"Manx", "gv", "glv"},        {"Maori", "mi", "mri"},         {"Marathi", "mr", "mar"},
+  {"Mongolian", "mn", "mon"},   {"Nauru", "na", "nau"},       {"Navajo", "nv", "nav"},        {"Ndebele", "nd", "nde"},
+  {"Ndonga", "ng", "ndo"},      {"Nepali", "ne", "nep"},      {"Norwegian", "no", "nor"},     {"Occitan", "oc", "oci"},
+  {"Ojibwa", "oj", "oji"},      {"Oriya", "or", "ori"},       {"Oromo", "om", "orm"},         {"Ossetian", "os", "oss"},
+  {"Pali", "pi", "pli"},        {"Panjabi", "pa", "pan"},     {"Pashto", "ps", "pus"},        {"Persian", "fa", "fas"},
+  {"Polish", "pl", "pol"},      {"Portuguese", "pt", "por"},  {"Quechua", "qu", "que"},       {"Romansh", "rm", "roh"},
+  {"Romanian", "ro", "ron"},    {"Rundi", "rn", "run"},       {"Russian", "ru", "rus"},       {"Sami", "se", "sme"},
+  {"Samoan", "sm", "smo"},      {"Sango", "sg", "sag"},       {"Sanskrit", "sa", "san"},      {"Sardinian", "sc", "srd"},
+  {"Serbian", "sr", "srp"},     {"Shona", "sn", "sna"},       {"Sichuan Yi", "ii", "iii"},    {"Sindhi", "sd", "snd"},
+  {"Sinhalese", "si", "sin"},   {"Slavonic", "cu", "chu"},    {"Slovak", "sk", "slk"},        {"Slovenian", "sl", "slv"},
+  {"Somali", "so", "som"},      {"Sotho", "st", "sot"},       {"Sundanese", "su", "sun"},     {"Swahili", "sw", "swa"},
+  {"Swati", "ss", "ssw"},       {"Swedish", "sv", "swe"},     {"Tagalog", "tl", "tgl"},       {"Tahitian", "ty", "tah"},
+  {"Tajik", "tg", "tgk"},       {"Tamil", "ta", "tam"},       {"Tatar", "tt", "tar"},         {"Telugu", "te", "tel"},
+  {"Thai", "th", "tha"},        {"Tibetan", "bo", "bod"},     {"Tigrinya", "ti", "tir"},      {"Tonga", "to", "ton"},
+  {"Tsonga", "ts", "tso"},      {"Tswana", "tn", "tsn"},      {"Turkish", "tr", "tur"},       {"Turkmen", "tk", "tuk"},
+  {"Twi", "tw", "twi"},         {"Uighur", "ug", "uig"},      {"Ukrainian", "uk", "ukr"},     {"Urdu", "ur", "urd"},
+  {"Uzbek", "uz", "uzb"},       {"Venda", "ve", "ven"},       {"Vietnamese", "vi", "vie"},    {"Volapük", "vo", "vol"},
+  {"Welsh", "cy", "cym"},       {"Walloon", "wa", "wln"},     {"Wolof", "wo", "wol"},         {"Xhosa", "xh", "xho"},
+  {"Yiddish", "yi", "yid"},     {"Yoruba", "yo", "yor"},      {"Zhuang", "za", "zha"},        {"Zulu", "zu", "zul"}}};
 
 class SubtitleProcessor : public QObject
 {
@@ -272,7 +141,11 @@ public:
 
     void convertSup(int index, int displayNumber, int displayMax, bool skipScaling = false);
     void setActive(bool value) { isActive = value; }
-    QList<QList<QString>>& getLanguages() { return languages; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QVector<QString>> &getLanguages() { return languages; }
+#else
+    QList<QList<QString>> &getLanguages() { return languages; }
+#endif
     Palette &getDefaultDVDPalette() { return defaultDVDPalette; }
     Palette &getCurrentDVDPalette() { return currentDVDPalette; }
     Palette &getCurrentSrcDVDPalette() { return currentSourceDVDPalette; }
@@ -328,9 +201,26 @@ public:
     void setCliMode(bool value) { cliMode = value; }
     bool getExportForced() { return exportForced; }
     void setExportForced(bool value) { exportForced = value; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> getLuminanceThreshold() { return luminanceThreshold; }
+    void setLuminanceThreshold(
+      QVector<int> value)
+    {
+      luminanceThreshold = value;
+    }
+#else
     QList<int> getLuminanceThreshold() { return luminanceThreshold; }
-    void setLuminanceThreshold(QList<int> value) { luminanceThreshold = value; }
-    void setLoadPath(QString value) { fileName = value; }
+    void setLuminanceThreshold(
+      QList<int> value)
+    {
+      luminanceThreshold = value;
+    }
+#endif
+    void setLoadPath(
+      QString value)
+    {
+      fileName = value;
+    }
     void setIFOFileName(QString value) { ifoFile = value; }
     int getCropOfsY() { return cropOfsY; }
     int setCropOfsY(int ofs) { return cropOfsY = ofs; }
@@ -468,13 +358,23 @@ public:
     Resolution getResolution(int width, int height);
     SubPicture *getSubPictureSrc(int index);
     Resolution getResolution(QString string);
-    QList<int> getResolutions(Resolution resolution);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> getResolutions(Resolution resolution);
     QImage getTrgImagePatched(SubPicture* subPicture);
+    SubPicture *getSubPictureTrg(int index);
+    QVector<int> &getFrameAlpha(int index);
+    QVector<int> getOriginalFrameAlpha(int index);
+    QVector<int> &getFramePal(int index);
+    QVector<int> getOriginalFramePal(int index);
+#else
+    QList<int> getResolutions(Resolution resolution);
+    QImage getTrgImagePatched(SubPicture *subPicture);
     SubPicture *getSubPictureTrg(int index);
     QList<int> &getFrameAlpha(int index);
     QList<int> getOriginalFrameAlpha(int index);
     QList<int> &getFramePal(int index);
     QList<int> getOriginalFramePal(int index);
+#endif
     Filter *scaleFilter;
 
     void storeFreeScale(double xScale, double yScale);
@@ -525,9 +425,11 @@ private:
     QStringList recentFiles;
 
     SubPictureDVD* subVobTrg = 0;
-
-    QList<SubPicture*> subPictures;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<SubPicture *> subPictures;
+#else
+    QList<SubPicture *> subPictures;
+#endif
     int languageIdxRead = false;
     int maxProgress = 0;
     double lastProgress = 0.0;
@@ -592,16 +494,26 @@ private:
 
     QString fileName = "";
     QString ifoFile = "";
-    QList<int> luminanceThreshold = { 210, 160 };
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> luminanceThreshold = {210, 160};
 
-    QList<int> alphaDefault = { 0, 0xf, 0xf, 0xf};
+    QVector<int> alphaDefault = {0, 0xf, 0xf, 0xf};
+#else
+    QList<int> luminanceThreshold = {210, 160};
+
+    QList<int> alphaDefault = {0, 0xf, 0xf, 0xf};
+#endif
     void SetValuesFromSettings();
     int countForcedIncluded();
     int countIncluded();
     void writePGCEditPalette(QString filename, Palette &palette);
     void validateTimes(int index, SubPicture* subPicture, SubPicture* subPictureNext,
                        SubPicture* subPicturePrevious);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> getResolution(Resolution resolution);
+#else
     QList<int> getResolution(Resolution resolution);
+#endif
     void determineFramePalette(int index);
     bool updateTrgPic(int index);
     QImage getSrcImage(int index);

@@ -85,7 +85,11 @@ void SubPictureDVD::copyInfo(SubPicture &subPicture)
     QRect rect = QRect(subPicture.x(), subPicture.y(), subPicture.imageWidth(), subPicture.imageHeight());
     numWindows = 1;
     numberCompObjects = 1;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    objectIds = QVector<int>{0};
+#else
     objectIds = QList<int> { 0 };
+#endif
     imageRects[0] = rect;
     setWindowSizes(imageRects);
     setImageSizes(imageRects);

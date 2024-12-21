@@ -434,10 +434,13 @@ Bitmap SupHD::decodeImage(SubPictureHD &subPicture, int transparentIndex)
     {
         throw QString("Corrupt buffer offset information");
     }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> evenBuf = QVector<uchar>(sizeEven);
+    QVector<uchar> oddBuf = QVector<uchar>(sizeOdd);
+#else
     QList<uchar> evenBuf = QList<uchar>(sizeEven);
     QList<uchar> oddBuf  = QList<uchar>(sizeOdd);
-
+#endif
     for (int i = 0; i < evenBuf.size(); i++)
     {
         evenBuf.replace(i, (uchar)fileBuffer->getByte(subPicture.imageBufferOffsetEven() + i));

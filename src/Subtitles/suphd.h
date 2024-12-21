@@ -26,7 +26,11 @@
 
 #include <QObject>
 #include <QString>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 #include <QScopedPointer>
 
 class SubtitleProcessor;
@@ -77,9 +81,11 @@ private:
     QScopedPointer<FileBuffer> fileBuffer;
 
     QString supFileName;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<SubPictureHD> subPictures;
+#else
     QList<SubPictureHD> subPictures;
-
+#endif
     SubtitleProcessor* subtitleProcessor = 0;
 
     void decode(SubPictureHD &subPicture);

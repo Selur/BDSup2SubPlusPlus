@@ -61,15 +61,23 @@ Palette SubstreamDVD::decodePalette(SubPictureDVD &pic, Palette &palette, int al
     }
     return miniPalette;
 }
-
-QList<uchar> SubstreamDVD::encodeLines(Bitmap &bitmap, bool even)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<uchar> SubstreamDVD::encodeLines(
+  Bitmap &bitmap, bool even)
+#else
+QList<uchar> SubstreamDVD::encodeLines(
+  Bitmap &bitmap, bool even)
+#endif
 {
     int ofs = 0;
     uchar color;
     int len;
     int y;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> nibbles;
+#else
     QList<uchar> nibbles;
-
+#endif
     if (even)
     {
         y = 0;
@@ -144,8 +152,13 @@ QList<uchar> SubstreamDVD::encodeLines(Bitmap &bitmap, bool even)
     nibbles.push_back((uchar)(0));
 
     int size =  nibbles.size() / 2; // number of bytes
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> retval(size);
+    QVectorIterator<uchar> it(nibbles);
+#else
     QList<uchar> retval(size);
     QListIterator<uchar> it(nibbles);
+#endif
     for (int i = 0; i < size; ++i)
     {
         int hi = (it.next() & 0xf);
@@ -173,8 +186,11 @@ Bitmap SubstreamDVD::decodeImage(SubPictureDVD &pic, int transIdx)
     }
 
     Bitmap bm(width, height, transIdx);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> buf(pic.rleSize());
+#else
     QList<uchar> buf(pic.rleSize());
+#endif
     int index = 0;
 
     int sizeEven;
@@ -254,97 +270,89 @@ void SubstreamDVD::decode(SubPictureDVD &pic, SubtitleProcessor* subtitleProcess
 
     _primaryColorIndex = _bitmap.primaryColorIndex(_palette, subtitleProcessor->getAlphaThreshold());
 }
-
-void SubstreamDVD::decodeLine(QList<uchar> src, int srcOfs, int srcLen,
-                              QImage &trg, int trgOfs, int width, int maxPixels)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void SubstreamDVD::decodeLine(
+  QVector<uchar> src, int srcOfs, int srcLen, QImage &trg, int trgOfs, int width, int maxPixels)
 {
-    QList<uchar> nibbles(srcLen * 2);
-    int b;
+  QVector<uchar> nibbles(srcLen * 2);
+#else
+void SubstreamDVD::decodeLine(
+  QList<uchar> src, int srcOfs, int srcLen, QImage &trg, int trgOfs, int width, int maxPixels)
+{
+  QList<uchar> nibbles(srcLen * 2);
+#endif
+  int b;
 
-    for (int i = 0; i < srcLen; ++i)
-    {
-        b = src[srcOfs + i] & 0xff;
-        nibbles.replace(2 * i, (uchar)(b >> 4));
-        nibbles.replace((2 * i) + 1, (uchar)(b & 0x0f));
-    }
+  for (int i = 0; i < srcLen; ++i) {
+    b = src[srcOfs + i] & 0xff;
+    nibbles.replace(2 * i, (uchar)(b >> 4));
+    nibbles.replace((2 * i) + 1, (uchar)(b & 0x0f));
+  }
 
-    int index = 0;
-    int sumPixels = 0;
-    int x = 0;
+  int index = 0;
+  int sumPixels = 0;
+  int x = 0;
 
-    while (index < nibbles.size() && sumPixels < maxPixels)
-    {
-        int len;
-        int col;
+  while (index < nibbles.size() && sumPixels < maxPixels) {
+    int len;
+    int col;
+    b = nibbles[index++] & 0xff;
+    if (b == 0) {
+      // three or four nibble code
+      b = nibbles[index++] & 0xff;
+      if ((b & 0xc) != 0) {
+        // three byte code
+        len = b << 2;
         b = nibbles[index++] & 0xff;
-        if (b == 0)
-        {
-            // three or four nibble code
-            b = nibbles[index++] & 0xff;
-            if ((b & 0xc) != 0)
-            {
-                // three byte code
-                len = b << 2;
-                b = nibbles[index++] & 0xff;
-                len |= (b >> 2);
-            }
-            else
-            {
-                // line feed or four nibble code
-                len = b << 6;
-                b = nibbles[index++] & 0xff;
-                len |= (b << 2);
-                b = nibbles[index++] & 0xff;
-                len |= (b >> 2);
-                if (len == 0)
-                {
-                    // line feed
-                    len = width - x;
-                    if (len <= 0)
-                    {
-                        len = 0;
-                        // handle line feed
-                        trgOfs += 2 * width; // lines are interlaced!
-                        sumPixels = ((trgOfs / width) / 2) * width;
-                        x = 0;
-                    }
-                    if ((index & 1) == 1)
-                    {
-                        ++index;
-                    }
-                }
-            }
+        len |= (b >> 2);
+      }
+      else {
+        // line feed or four nibble code
+        len = b << 6;
+        b = nibbles[index++] & 0xff;
+        len |= (b << 2);
+        b = nibbles[index++] & 0xff;
+        len |= (b >> 2);
+        if (len == 0) {
+          // line feed
+          len = width - x;
+          if (len <= 0) {
+            len = 0;
+            // handle line feed
+            trgOfs += 2 * width;  // lines are interlaced!
+            sumPixels = ((trgOfs / width) / 2) * width;
+            x = 0;
+          }
+          if ((index & 1) == 1) {
+            ++index;
+          }
         }
-        else
-        {
-            // one or two nibble code
-            len = b >> 2;
-            if (len == 0)
-            {
-                // two nibble code
-                len = b << 2;
-                b = nibbles[index++] & 0xff;
-                len |= (b >> 2);
-            }
-        }
-
-        col = b & 0x3;
-        sumPixels += len;
-
-
-        uchar* pixels = trg.bits();
-        for (int i = 0; i < len; ++i)
-        {
-            pixels[trgOfs + x] = (uchar)col;
-            if (++x >= width)
-            {
-                trgOfs += (2 * (width + (trg.bytesPerLine() - width))); // lines are interlaced!
-                x = 0;
-                if ((index & 1) == 1)
-                {
-                    index++;
-                }
-            }
-        }
+      }
     }
+    else {
+      // one or two nibble code
+      len = b >> 2;
+      if (len == 0) {
+        // two nibble code
+        len = b << 2;
+        b = nibbles[index++] & 0xff;
+        len |= (b >> 2);
+      }
+    }
+
+    col = b & 0x3;
+    sumPixels += len;
+
+    uchar *pixels = trg.bits();
+    for (int i = 0; i < len; ++i) {
+      pixels[trgOfs + x] = (uchar)col;
+      if (++x >= width) {
+        trgOfs += (2 * (width + (trg.bytesPerLine() - width)));  // lines are interlaced!
+        x = 0;
+        if ((index & 1) == 1) {
+          index++;
+        }
+      }
+    }
+  }
 }

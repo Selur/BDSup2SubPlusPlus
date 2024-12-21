@@ -134,16 +134,18 @@ void BDSup2Sub::onLoadingSubtitleFileFinished(const QString &errorString)
         }
         if (setLumaThreshold)
         {
-            QList<int> lumaThr = subtitleProcessor->getLuminanceThreshold();
-            if (lumThr1 > 0)
-            {
-                lumaThr.replace(0, lumThr1);
-            }
-            if (lumThr2 > 0)
-            {
-                lumaThr.replace(1, lumThr2);
-            }
-            subtitleProcessor->setLuminanceThreshold(lumaThr);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+          QVector<int> lumaThr = subtitleProcessor->getLuminanceThreshold();
+#else
+          QList<int> lumaThr = subtitleProcessor->getLuminanceThreshold();
+#endif
+          if (lumThr1 > 0) {
+            lumaThr.replace(0, lumThr1);
+          }
+          if (lumThr2 > 0) {
+            lumaThr.replace(1, lumThr2);
+          }
+          subtitleProcessor->setLuminanceThreshold(lumaThr);
         }
         if (setAlphaThreshold)
         {
@@ -300,20 +302,18 @@ void BDSup2Sub::dragEnterEvent(QDragEnterEvent *event)
 
 void BDSup2Sub::dropEvent(QDropEvent *event)
 {
-    QList<QUrl> urls = event->mimeData()->urls();
-    if (urls.isEmpty())
-    {
-        return;
-    }
-    QString fileName = urls.first().toLocalFile();
-    if (fileName.isEmpty() || !QFileInfo(fileName).isFile())
-    {
-        return;
-    }
-    closeFile();
-    connectSubtitleProcessor();
-    loadPath = fileName;
-    loadSubtitleFile();
+  QList<QUrl> urls = event->mimeData()->urls();
+  if (urls.isEmpty()) {
+    return;
+  }
+  QString fileName = urls.first().toLocalFile();
+  if (fileName.isEmpty() || !QFileInfo(fileName).isFile()) {
+    return;
+  }
+  closeFile();
+  connectSubtitleProcessor();
+  loadPath = fileName;
+  loadSubtitleFile();
 }
 
 void BDSup2Sub::showEvent(QShowEvent *event)
@@ -1771,8 +1771,11 @@ bool BDSup2Sub::execCLI(int /*argc*/, char** /*argv*/)
                 }
 
                 printWarnings(outStream);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+                QVector<int> lumaThr = subtitleProcessor->getLuminanceThreshold();
+#else
                 QList<int> lumaThr = subtitleProcessor->getLuminanceThreshold();
+#endif
                 if (lumThr1 > 0)
                 {
                     lumaThr.replace(0, lumThr1);
@@ -1988,10 +1991,13 @@ void BDSup2Sub::editDefaultDVDPalette_triggered()
                                "Color 5 light", "Color 5 dark",
                                "Color 6 light", "Color 6 dark"
                              };
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QColor> colors;
+    QVector<QColor> defaultColors;
+#else
     QList<QColor> colors;
     QList<QColor> defaultColors;
-
+#endif
     for (int i = 0; i < colorNames.size(); ++i)
     {
         colors.push_back(subtitleProcessor->getCurrentDVDPalette().color(i));
@@ -2032,10 +2038,13 @@ void BDSup2Sub::editImportedDVDPalette_triggered()
                                "Color 8", "Color 9", "Color 10", "Color 11",
                                "Color 12", "Color 13", "Color 14", "Color 15"
                              };
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QColor> colors;
+    QVector<QColor> defaultColors;
+#else
     QList<QColor> colors;
     QList<QColor> defaultColors;
-
+#endif
     for (int i = 0; i < 16; ++i)
     {
         colors.push_back(subtitleProcessor->getCurrentSrcDVDPalette().color(i));
@@ -2229,8 +2238,11 @@ void BDSup2Sub::on_filterComboBox_currentIndexChanged(int index)
 void BDSup2Sub::on_hiMedThresholdComboBox_currentIndexChanged(int index)
 {
     int idx = index;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> lumaThreshold = subtitleProcessor->getLuminanceThreshold();
+#else
     QList<int> lumaThreshold = subtitleProcessor->getLuminanceThreshold();
-
+#endif
     if (idx <= lumaThreshold[1])
     {
         idx = lumaThreshold[1] + 1;
@@ -2265,7 +2277,11 @@ void BDSup2Sub::on_hiMedThresholdComboBox_currentIndexChanged(int index)
 void BDSup2Sub::on_medLowThresholdComboBox_currentIndexChanged(int index)
 {
     int idx = index;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> lumaThreshold = subtitleProcessor->getLuminanceThreshold();
+#else
     QList<int> lumaThreshold = subtitleProcessor->getLuminanceThreshold();
+#endif
     if (idx >= lumaThreshold[0])
     {
         idx = lumaThreshold[0] - 1;

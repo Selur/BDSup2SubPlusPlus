@@ -69,164 +69,156 @@ QImage SupXML::image(Bitmap &bitmap)
 
 void SupXML::decode(int index)
 {
-    QList<Bitmap> bitmaps;
-    QList<Palette> palettes;
-    SubPictureXML &subPic = subPictures[index];
-    for (int i = 0; i < subPic.fileNames().size(); ++i)
-    {
-        if (!QFileInfo(subPic.fileNames()[i]).exists())
-        {
-            throw QString("File: '%1' not found").arg(subPic.fileNames()[i]);
-        }
-
-        Bitmap bitmap;
-        Palette palette = Palette(0, true);
-        QImage image(subPic.fileNames()[i]);
-        int width = image.width();
-        int height = image.height();
-
-        // first try to read image and palette directly from imported image
-        if (image.format() == QImage::Format_Indexed8)
-        {
-            QList<QRgb> colorTable = image.colorTable();
-            if (colorTable.size() <= 255 || (image.hasAlphaChannel() && qAlpha(colorTable[255]) == 0))
-            {
-                // create palette
-                palette = Palette(256);
-                for (int i = 0; i < colorTable.size(); ++i)
-                {
-                    int alpha = (colorTable[i] >> 24) & 0xff;
-                    if (alpha >= subtitleProcessor->getAlphaCrop())
-                    {
-                        palette.setARGB(i, colorTable[i]);
-                    }
-                    else
-                    {
-                        palette.setARGB(i, 0);
-                    }
-                }
-                bitmap = Bitmap(image);
-            }
-        }
-
-        // if this failed, assume RGB image and quantize palette
-        if (palette.size() == 0)
-        {
-            // quantize image
-            QuantizeFilter qf;
-            bitmap = Bitmap(image.width(), image.height());
-            QList<QRgb> ct = qf.quantize(image, &bitmap.image(), width, height, 255, false, false);
-            int size = ct.size();
-            if (size > 255)
-            {
-                subtitleProcessor->printWarning("Quantizer failed.\n");
-                size = 255;
-            }
-            // create palette
-            palette = Palette(256);
-            for (int i = 0; i < size; ++i)
-            {
-                int alpha = qAlpha(ct[i]);
-                if (alpha >= subtitleProcessor->getAlphaCrop())
-                {
-                    palette.setARGB(i, ct[i]);
-                }
-                else
-                {
-                    palette.setARGB(i, 0);
-                }
-            }
-        }
-        bitmaps.push_back(bitmap);
-        palettes.push_back(palette);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<Bitmap> bitmaps;
+  QVector<Palette> palettes;
+#else
+  QList<Bitmap> bitmaps;
+  QList<Palette> palettes;
+#endif
+  SubPictureXML &subPic = subPictures[index];
+  for (int i = 0; i < subPic.fileNames().size(); ++i) {
+    if (!QFileInfo(subPic.fileNames()[i]).exists()) {
+      throw QString("File: '%1' not found").arg(subPic.fileNames()[i]);
     }
 
-    //combine images
-    if (bitmaps.size() == 1)
-    {
-        _bitmap = bitmaps[0];
-        _palette = palettes[0];
-    }
-    else
-    {
-        const QList<QRect> &imageRects = subPic.imageSizes().values();
-        int resultXOffset = imageRects[0].x() > imageRects[1].x() ? imageRects[1].x() : imageRects[0].x();
-        int resultYOffset = imageRects[0].y() > imageRects[1].y() ? imageRects[1].y() : imageRects[0].y();
-        int width = 0, height = 0;
+    Bitmap bitmap;
+    Palette palette = Palette(0, true);
+    QImage image(subPic.fileNames()[i]);
+    int width = image.width();
+    int height = image.height();
 
-        if (imageRects[0].y() > imageRects[1].y())
-        {
-            height = (imageRects[0].y() + imageRects[0].height()) - imageRects[1].y();
+    // first try to read image and palette directly from imported image
+    if (image.format() == QImage::Format_Indexed8) {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<QRgb> colorTable = image.colorTable();
+#else
+      QList<QRgb> colorTable = image.colorTable();
+#endif
+      if (colorTable.size() <= 255 || (image.hasAlphaChannel() && qAlpha(colorTable[255]) == 0)) {
+        // create palette
+        palette = Palette(256);
+        for (int i = 0; i < colorTable.size(); ++i) {
+          int alpha = (colorTable[i] >> 24) & 0xff;
+          if (alpha >= subtitleProcessor->getAlphaCrop()) {
+            palette.setARGB(i, colorTable[i]);
+          }
+          else {
+            palette.setARGB(i, 0);
+          }
         }
-        else
-        {
-            height = (imageRects[1].y() + imageRects[1].height()) - imageRects[0].y();
-        }
-        width = imageRects[0].width() > imageRects[1].width() ? imageRects[0].width() : imageRects[1].width();
-
-        QImage resultImage(1920, 1080, QImage::Format_ARGB32_Premultiplied);
-        QPainter painter(&resultImage);
-        painter.setCompositionMode(QPainter::CompositionMode_Source);
-        painter.fillRect(resultImage.rect(), Qt::transparent);
-        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-        painter.drawImage(subPic.imageSizes()[0].x(), subPic.imageSizes()[0].y(), bitmaps[0].image(palettes[0]));
-        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-        painter.drawImage(subPic.imageSizes()[1].x(), subPic.imageSizes()[1].y(), bitmaps[1].image(palettes[1]));
-        painter.end();
-
-        resultImage = resultImage.convertToFormat(QImage::Format_Indexed8, palettes[0].colorTable());
-        resultImage = resultImage.copy(resultXOffset, resultYOffset, width, height);
-
-        _bitmap = Bitmap(resultImage);
-        _palette = palettes[0];
+        bitmap = Bitmap(image);
+      }
     }
 
-    _primaryColorIndex = _bitmap.primaryColorIndex(_palette, subtitleProcessor->getAlphaThreshold());
-    // crop
-    QRect bounds = _bitmap.bounds(_palette, subtitleProcessor->getAlphaCrop());
-    if (bounds.topLeft().y() > 0 || bounds.topLeft().x() > 0 ||
-        bounds.bottomRight().x() < (_bitmap.width() - 1) ||
-        bounds.bottomRight().y() < (_bitmap.height() - 1))
-    {
-        int width = bounds.width();
-        int height = bounds.height();
-
-        if (width < 2)
-        {
-            width = 2;
+    // if this failed, assume RGB image and quantize palette
+    if (palette.size() == 0) {
+      // quantize image
+      QuantizeFilter qf;
+      bitmap = Bitmap(image.width(), image.height());
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+      QVector<QRgb> ct = qf.quantize(image, &bitmap.image(), width, height, 255, false, false);
+#else
+      QList<QRgb> ct = qf.quantize(image, &bitmap.image(), width, height, 255, false, false);
+#endif
+      int size = ct.size();
+      if (size > 255) {
+        subtitleProcessor->printWarning("Quantizer failed.\n");
+        size = 255;
+      }
+      // create palette
+      palette = Palette(256);
+      for (int i = 0; i < size; ++i) {
+        int alpha = qAlpha(ct[i]);
+        if (alpha >= subtitleProcessor->getAlphaCrop()) {
+          palette.setARGB(i, ct[i]);
         }
-        if (height < 2)
-        {
-            height = 2;
+        else {
+          palette.setARGB(i, 0);
         }
-
-        _bitmap = _bitmap.crop(bounds.topLeft().x(), bounds.topLeft().y(), width, height);
-        QMap<int, QRect> &imageRects = subPic.imageSizes();
-        QMap<int, QRect> &windowRects = subPic.windowSizes();
-
-        int xOffset = abs(subPic.x() - (subPic.originalX() + bounds.topLeft().x()));
-        int yOffset = abs(subPic.y() - (subPic.originalY() + bounds.topLeft().y()));
-        double widthScale = (double) width / subPic.imageWidth();
-        double heightScale = (double) height / subPic.imageHeight();
-
-        // update picture
-        for (QRect imageRect : imageRects)
-        {
-            imageRect.setX(imageRect.x() + xOffset);
-            imageRect.setY(imageRect.y() + yOffset);
-            imageRect.setWidth((int) ((imageRect.width() * widthScale) + .5));
-            imageRect.setHeight((int) ((imageRect.height() * heightScale) + .5));
-        }
-
-        // update picture
-        for (QRect windowRect : windowRects)
-        {
-            windowRect.setX(windowRect.x() + xOffset);
-            windowRect.setY(windowRect.y() + yOffset);
-            windowRect.setWidth((int) ((windowRect.width() * widthScale) + .5));
-            windowRect.setHeight((int) ((windowRect.height() * heightScale) + .5));
-        }
+      }
     }
+    bitmaps.push_back(bitmap);
+    palettes.push_back(palette);
+  }
+
+  // combine images
+  if (bitmaps.size() == 1) {
+    _bitmap = bitmaps[0];
+    _palette = palettes[0];
+  }
+  else {
+    const QList<QRect> &imageRects = subPic.imageSizes().values();
+    int resultXOffset = imageRects[0].x() > imageRects[1].x() ? imageRects[1].x() : imageRects[0].x();
+    int resultYOffset = imageRects[0].y() > imageRects[1].y() ? imageRects[1].y() : imageRects[0].y();
+    int width = 0, height = 0;
+
+    if (imageRects[0].y() > imageRects[1].y()) {
+      height = (imageRects[0].y() + imageRects[0].height()) - imageRects[1].y();
+    }
+    else {
+      height = (imageRects[1].y() + imageRects[1].height()) - imageRects[0].y();
+    }
+    width = imageRects[0].width() > imageRects[1].width() ? imageRects[0].width() : imageRects[1].width();
+
+    QImage resultImage(1920, 1080, QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&resultImage);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(resultImage.rect(), Qt::transparent);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    painter.drawImage(subPic.imageSizes()[0].x(), subPic.imageSizes()[0].y(), bitmaps[0].image(palettes[0]));
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    painter.drawImage(subPic.imageSizes()[1].x(), subPic.imageSizes()[1].y(), bitmaps[1].image(palettes[1]));
+    painter.end();
+
+    resultImage = resultImage.convertToFormat(QImage::Format_Indexed8, palettes[0].colorTable());
+    resultImage = resultImage.copy(resultXOffset, resultYOffset, width, height);
+
+    _bitmap = Bitmap(resultImage);
+    _palette = palettes[0];
+  }
+
+  _primaryColorIndex = _bitmap.primaryColorIndex(_palette, subtitleProcessor->getAlphaThreshold());
+  // crop
+  QRect bounds = _bitmap.bounds(_palette, subtitleProcessor->getAlphaCrop());
+  if (bounds.topLeft().y() > 0 || bounds.topLeft().x() > 0 || bounds.bottomRight().x() < (_bitmap.width() - 1)
+      || bounds.bottomRight().y() < (_bitmap.height() - 1))
+  {
+    int width = bounds.width();
+    int height = bounds.height();
+
+    if (width < 2) {
+      width = 2;
+    }
+    if (height < 2) {
+      height = 2;
+    }
+
+    _bitmap = _bitmap.crop(bounds.topLeft().x(), bounds.topLeft().y(), width, height);
+    QMap<int, QRect> &imageRects = subPic.imageSizes();
+    QMap<int, QRect> &windowRects = subPic.windowSizes();
+
+    int xOffset = abs(subPic.x() - (subPic.originalX() + bounds.topLeft().x()));
+    int yOffset = abs(subPic.y() - (subPic.originalY() + bounds.topLeft().y()));
+    double widthScale = (double)width / subPic.imageWidth();
+    double heightScale = (double)height / subPic.imageHeight();
+
+    // update picture
+    for (QRect imageRect : imageRects) {
+      imageRect.setX(imageRect.x() + xOffset);
+      imageRect.setY(imageRect.y() + yOffset);
+      imageRect.setWidth((int)((imageRect.width() * widthScale) + .5));
+      imageRect.setHeight((int)((imageRect.height() * heightScale) + .5));
+    }
+
+    // update picture
+    for (QRect windowRect : windowRects) {
+      windowRect.setX(windowRect.x() + xOffset);
+      windowRect.setY(windowRect.y() + yOffset);
+      windowRect.setWidth((int)((windowRect.width() * widthScale) + .5));
+      windowRect.setHeight((int)((windowRect.height() * heightScale) + .5));
+    }
+  }
 }
 
 int SupXML::numFrames()
@@ -286,8 +278,13 @@ QString SupXML::getPNGname(QString filename, int idx)
     QFileInfo info(filename);
     return QString("%1/%2_%3.png").arg(info.absolutePath()).arg(info.completeBaseName()).arg(QString::number(idx), 4, QChar('0'));
 }
-
-void SupXML::writeXml(QString filename, QList<SubPicture*> pics)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void SupXML::writeXml(
+  QString filename, QVector<SubPicture *> pics)
+#else
+void SupXML::writeXml(
+  QString filename, QList<SubPicture *> pics)
+#endif
 {
     double fps = subtitleProcessor->getFPSTrg();
     double fpsXml = XmlFps(fps);
@@ -579,7 +576,11 @@ bool SupXML::XmlHandler::startElement(const QString &/*namespaceURI*/, const QSt
         {
             parent->_numForcedFrames++;
         }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<int> dim = parent->subtitleProcessor->getResolutions(parent->resolution);
+#else
         QList<int> dim = parent->subtitleProcessor->getResolutions(parent->resolution);
+#endif
         subPicture->setScreenWidth(dim.at(0));
         subPicture->setScreenHeight(dim.at(1));
     } break;

@@ -22,7 +22,11 @@
 
 #include "imageobjectfragment.h"
 
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 
 class ImageObject
 {
@@ -65,10 +69,13 @@ public:
 
     int objectVersion() { return objVer; }
     void setObjectVersion(int objectVersion) { objVer = objectVersion; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<ImageObjectFragment>& fragmentList() { return fragments; }
+#else
+    QList<ImageObjectFragment>& fragmentList() { return fragments; }
+#endif
 
-    QList<ImageObjectFragment> &fragmentList() { return fragments; }
-
-private:
+  private:
     int paletteId = -1;
     int bufSize = 0;
     int w = 0;
@@ -81,8 +88,11 @@ private:
     int objectId = -1;
     int objVer = 0;
     int objSeq = 0;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<ImageObjectFragment> fragments;
+#else
     QList<ImageObjectFragment> fragments;
+#endif
 };
 
 #endif // IMAGEOBJECT_H

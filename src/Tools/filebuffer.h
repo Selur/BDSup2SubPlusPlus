@@ -24,7 +24,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QString>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 
 class FileBuffer
 {

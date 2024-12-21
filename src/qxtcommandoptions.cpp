@@ -213,10 +213,15 @@ class QxtCommandOptionsPrivate : public QxtPrivate<QxtCommandOptions>
     Q_DECLARE_TR_FUNCTIONS(QxtCommandOptions)
 public:
     QXT_DECLARE_PUBLIC(QxtCommandOptions)
-
-    QList<QxtCommandOption> options;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QxtCommandOption> options;
     QHash<QString, QxtCommandOption*> lookup;       // cache structure to simplify processing
-    QHash<int, QList<QxtCommandOption*> > groups;   // cache structure to simplify processing
+    QHash<int, QVector<QxtCommandOption*> > groups;  // cache structure to simplify processing
+#else
+    QList<QxtCommandOption> options;
+    QHash<QString, QxtCommandOption*> lookup;      // cache structure to simplify processing
+    QHash<int, QList<QxtCommandOption*> > groups;  // cache structure to simplify processing
+#endif
     QxtCommandOptions::FlagStyle flagStyle;
     QxtCommandOptions::ParamStyle paramStyle;
     QStringList positional;                         // prefixless parameters
@@ -526,7 +531,11 @@ void QxtCommandOptionsPrivate::setOption(QxtCommandOption* option, const QString
     if (groups.contains(option->group))
     {
         // Clear mutually-exclusive options
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+        QVector<QxtCommandOption*>& others = groups[option->group];
+#else
         QList<QxtCommandOption*>& others = groups[option->group];
+#endif
         foreach(QxtCommandOption* other, others)
         {
             if (other != option) other->values.clear();

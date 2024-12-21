@@ -21,8 +21,12 @@
 #define PALETTE_H
 
 #include <QtGlobal>
-#include <QList>
 #include <QColor>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
+#include <QList>
+#endif
 
 class Palette
 {
@@ -31,7 +35,11 @@ public:
     Palette(const Palette& other);
     Palette(const Palette* other);
     Palette(int paletteSize, bool use601 = false);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    Palette(QVector<uchar> r, QVector<uchar> g, QVector<uchar> b, QVector<uchar> a, bool use601);
+#else
     Palette(QList<uchar> r, QList<uchar> g, QList<uchar> b, QList<uchar> a, bool use601);
+#endif
     ~Palette();
 
     void setAlpha(int index, int alpha);
@@ -53,7 +61,17 @@ public:
 
     QRgb rgb(int index) { return qRgba(qRed(colors[index]), qGreen(colors[index]), qBlue(colors[index]), 0); }
     QRgb rgba(int index) { return colors[index]; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> Y() { return y; }
+    QVector<uchar> Cb() { return cb; }
+    QVector<uchar> Cr() { return cr; }
 
+    QVector<int> YCbCr(int index);
+
+    QVector<QRgb> colorTable() { return colors; }
+
+    static QVector<int> RGB2YCbCr(QRgb rgb, bool use601);
+#else
     QList<uchar> Y() { return y; }
     QList<uchar> Cb() { return cb; }
     QList<uchar> Cr() { return cr; }
@@ -63,17 +81,23 @@ public:
     QList<QRgb> colorTable() { return colors; }
 
     static QList<int> RGB2YCbCr(QRgb rgb, bool use601);
+#endif
 
-private:
+  private:
     int paletteSize = 0;
 
     bool useBT601 = false;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> colors;
+    QVector<uchar> y;
+    QVector<uchar> cb;
+    QVector<uchar> cr;
+#else
     QList<QRgb> colors;
     QList<uchar> y;
     QList<uchar> cb;
     QList<uchar> cr;
-
+#endif
     QRgb YCbCr2RGB(int y, int cb, int cr, bool useBT601);
 };
 

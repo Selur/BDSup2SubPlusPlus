@@ -100,8 +100,33 @@ SubPicture *SubDVD::subPicture(int index)
 {
     return &subPictures[index];
 }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> &SubDVD::getFrameAlpha(
+  int index)
+{
+  return subPictures[index].alpha;
+}
 
-QList<int> &SubDVD::getFrameAlpha(int index)
+QVector<int> &SubDVD::getFramePal(
+  int index)
+{
+  return subPictures[index].pal;
+}
+
+QVector<int> SubDVD::getOriginalFrameAlpha(
+  int index)
+{
+  return subPictures[index].originalAlpha;
+}
+
+QVector<int> SubDVD::getOriginalFramePal(
+  int index)
+{
+  return subPictures[index].originalPal;
+}
+#else
+QList<int> &SubDVD::getFrameAlpha(
+  int index)
 {
     return subPictures[index].alpha;
 }
@@ -120,6 +145,7 @@ QList<int> SubDVD::getOriginalFramePal(int index)
 {
     return subPictures[index].originalPal;
 }
+#endif
 
 void SubDVD::readSubFrame(SubPictureDVD &pic, qint64 endOfs)
 {
@@ -131,7 +157,11 @@ void SubDVD::readSubFrame(SubPictureDVD &pic, qint64 endOfs)
     int rleBufferFound = 0;
     int ctrlSize = -1;
     int ctrlHeaderCopied = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> ctrlHeader;
+#else
     QList<uchar> ctrlHeader;
+#endif
     ImageObjectFragment rleFrag;
     int length;
     int packHeaderSize;
@@ -197,7 +227,11 @@ void SubDVD::readSubFrame(SubPictureDVD &pic, qint64 endOfs)
             {
                 throw QString("Invalid control buffer size");
             }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+            ctrlHeader = QVector<uchar>(ctrlSize);
+#else
             ctrlHeader = QList<uchar>(ctrlSize);
+#endif
             ctrlOfs = ctrlOfsRel + ofs; // might have to be corrected for multiple packets
             ofs += 2;
             headerSize = (int)(ofs - startOfs);
@@ -267,7 +301,11 @@ void SubDVD::readSubFrame(SubPictureDVD &pic, qint64 endOfs)
 
     pic.setRleSize(rleBufferFound);
     int alphaSum = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> alphaUpdate(4);
+#else
     QList<int> alphaUpdate(4);
+#endif
     int alphaUpdateSum;
     int delay = -1;
     bool ColAlphaUpdate = false;
@@ -492,293 +530,270 @@ void SubDVD::readAllSubFrames()
 
     subtitleProcessor->printX(QString("\nDetected %1 forced captions.\n").arg(QString::number(_numForcedFrames)));
 }
-
-QList<uchar> SubDVD::createSubFrame(SubPictureDVD &subPicture, Bitmap &bitmap)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<uchar> SubDVD::createSubFrame(
+  SubPictureDVD &subPicture, Bitmap &bitmap)
 {
-    QList<uchar> even = encodeLines(bitmap, true);
-    QList<uchar> odd = encodeLines(bitmap, false);
-    int tmp;
+  QVector<uchar> even = encodeLines(bitmap, true);
+  QVector<uchar> odd = encodeLines(bitmap, false);
+#else
+QList<uchar> SubDVD::createSubFrame(
+  SubPictureDVD &subPicture, Bitmap &bitmap)
+{
+  QList<uchar> even = encodeLines(bitmap, true);
+  QList<uchar> odd = encodeLines(bitmap, false);
+#endif
+  int tmp;
 
-    int forcedOfs;
-    int controlHeaderLen;
-    if (subPicture.isForced())
-    {
-        forcedOfs = 0;
-        controlHeader.replace(2, 0x01); // display
-        controlHeader.replace(3, 0x00); // forced
-        controlHeaderLen = controlHeader.size();
+  int forcedOfs;
+  int controlHeaderLen;
+  if (subPicture.isForced()) {
+    forcedOfs = 0;
+    controlHeader.replace(2, 0x01);  // display
+    controlHeader.replace(3, 0x00);  // forced
+    controlHeaderLen = controlHeader.size();
+  }
+  else {
+    forcedOfs = 1;
+    controlHeader.replace(2, 0x00);  // part of offset
+    controlHeader.replace(3, 0x01);  // display
+    controlHeaderLen = controlHeader.size() - 1;
+  }
 
+  // fill out all info but the offets (determined later)
+
+  /* header - contains PTM */
+  int ptm = (int)subPicture.startTime();  // should be end time, but STC writes start time?
+  headerFirst.replace(9, (uchar)(((ptm >> 29) & 0x0E) | 0x21));
+  headerFirst.replace(10, (uchar)(ptm >> 22));
+  headerFirst.replace(11, (uchar)((ptm >> 14) | 1));
+  headerFirst.replace(12, (uchar)(ptm >> 7));
+  headerFirst.replace(13, (uchar)((ptm * 2) + 1));
+
+  /* control header */
+  /* palette (store reversed) */
+  controlHeader.replace(1 + 4, (uchar)(((subPicture.pal[3] & 0xf) << 4) | (subPicture.pal[2] & 0x0f)));
+  controlHeader.replace(1 + 5, (uchar)(((subPicture.pal[1] & 0xf) << 4) | (subPicture.pal[0] & 0x0f)));
+  /* alpha (store reversed) */
+  controlHeader.replace(1 + 7, (uchar)(((subPicture.alpha[3] & 0xf) << 4) | (subPicture.alpha[2] & 0x0f)));
+  controlHeader.replace(1 + 8, (uchar)(((subPicture.alpha[1] & 0xf) << 4) | (subPicture.alpha[0] & 0x0f)));
+
+  /* coordinates of subtitle */
+  controlHeader.replace(1 + 10, (uchar)((subPicture.x() >> 4) & 0xff));
+  tmp = (subPicture.x() + bitmap.width()) - 1;
+  controlHeader.replace(1 + 11, (uchar)(((subPicture.x() & 0xf) << 4) | ((tmp >> 8) & 0xf)));
+  controlHeader.replace(1 + 12, (uchar)(tmp & 0xff));
+
+  int yOfs = subPicture.y() - subtitleProcessor->getCropOfsY();
+  if (yOfs < 0) {
+    yOfs = 0;
+  }
+  else {
+    int yMax = (subPicture.screenHeight() - subPicture.imageHeight()) - (2 * subtitleProcessor->getCropOfsY());
+    if (yOfs > yMax) {
+      yOfs = yMax;
     }
-    else
-    {
-        forcedOfs = 1;
-        controlHeader.replace(2, 0x00); // part of offset
-        controlHeader.replace(3, 0x01); // display
-        controlHeaderLen = controlHeader.size() - 1;
+  }
+
+  controlHeader.replace(1 + 13, (uchar)((yOfs >> 4) & 0xff));
+  tmp = (yOfs + bitmap.height()) - 1;
+  controlHeader.replace(1 + 14, (uchar)(((yOfs & 0xf) << 4) | ((tmp >> 8) & 0xf)));
+  controlHeader.replace(1 + 15, (uchar)(tmp & 0xff));
+
+  /* offset to even lines in rle buffer */
+  controlHeader.replace(1 + 17, 0x00); /* 2 bytes subpicture size and 2 bytes control header ofs */
+  controlHeader.replace(1 + 18, 0x04); /* note: SubtitleCreator uses 6 and adds 0x0000 in between */
+
+  /* offset to odd lines in rle buffer */
+  tmp = even.size() + controlHeader[1 + 18];
+  controlHeader.replace(1 + 19, (uchar)((tmp >> 8) & 0xff));
+  controlHeader.replace(1 + 20, (uchar)(tmp & 0xff));
+
+  /* display duration in frames */
+  tmp = (int)((subPicture.endTime() - subPicture.startTime()) / 1024);  // 11.378ms resolution????
+  controlHeader.replace(1 + 22, (uchar)((tmp >> 8) & 0xff));
+  controlHeader.replace(1 + 23, (uchar)(tmp & 0xff));
+
+  /* offset to end sequence - 22 is the offset of the end sequence */
+  tmp = even.size() + odd.size() + 22 + (subPicture.isForced() ? 1 : 0) + 4;
+  controlHeader.replace(forcedOfs + 0, (uchar)((tmp >> 8) & 0xff));
+  controlHeader.replace(forcedOfs + 1, (uchar)(tmp & 0xff));
+  controlHeader.replace(1 + 24, (uchar)((tmp >> 8) & 0xff));
+  controlHeader.replace(1 + 25, (uchar)(tmp & 0xff));
+
+  // subpicture size
+  tmp = even.size() + odd.size() + 4 + controlHeaderLen;
+  headerFirst.replace(15, (uchar)(tmp >> 8));
+  headerFirst.replace(16, (uchar)tmp);
+
+  /* offset to control buffer - 2 is the size of the offset */
+  tmp = even.size() + odd.size() + 2;
+  headerFirst.replace(17, (uchar)(tmp >> 8));
+  headerFirst.replace(18, (uchar)tmp);
+
+  // unfortunately, the SUB format only allows 0x800 bytes to
+  // be written per packet. If a packet is larger, it has to be
+  // split into fragments <= 0x800 bytes which follow one after the other.
+
+  int sizeRLE = even.size() + odd.size();
+  int bufSize = packHeader.size() + headerFirst.size() + controlHeaderLen + sizeRLE;
+  int numAdditionalPackets = 0;
+  if (bufSize > 0x800) {
+    // determine how many additional headers we will need
+    // considering that each additional header also adds to the size
+    // due to its own headers
+    numAdditionalPackets = 1;
+    int remainingRLEsize = sizeRLE - ((0x800 - packHeader.size()) - headerFirst.size());  // size - 0x7df
+    while (remainingRLEsize > (((0x800 - packHeader.size()) - headerNext.size()) - controlHeaderLen)) {
+      remainingRLEsize -= ((0x800 - packHeader.size()) - headerNext.size());
+      bufSize += packHeader.size() + headerNext.size();
+      ++numAdditionalPackets;
     }
+    // packet length of the 1st packet should be the maximum size
+    tmp = (0x800 - packHeader.size()) - 6;
+  }
+  else {
+    tmp = ((bufSize - packHeader.size()) - 6);
+  }
 
-    // fill out all info but the offets (determined later)
+  // allocate and fill buffer
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<uchar> buf((1 + numAdditionalPackets) * 0x800);
+#else
+  QList<uchar> buf((1 + numAdditionalPackets) * 0x800);
+#endif
 
-    /* header - contains PTM */
-    int ptm = (int)subPicture.startTime(); // should be end time, but STC writes start time?
-    headerFirst.replace(9, (uchar)(((ptm >> 29) & 0x0E) | 0x21));
-    headerFirst.replace(10, (uchar)(ptm >> 22));
-    headerFirst.replace(11, (uchar)((ptm >> 14) | 1));
-    headerFirst.replace(12, (uchar)(ptm >> 7));
-    headerFirst.replace(13, (uchar)((ptm * 2) + 1));
+  int stuffingBytes;
+  int diff = buf.size() - bufSize;
+  if (diff > 0 && diff < 6) {
+    stuffingBytes = diff;
+  }
+  else {
+    stuffingBytes = 0;
+  }
 
-    /* control header */
-    /* palette (store reversed) */
-    controlHeader.replace(1 + 4, (uchar)(((subPicture.pal[3] & 0xf) << 4) | (subPicture.pal[2] & 0x0f)));
-    controlHeader.replace(1 + 5, (uchar)(((subPicture.pal[1] & 0xf) << 4) | (subPicture.pal[0] & 0x0f)));
-    /* alpha (store reversed) */
-    controlHeader.replace(1 + 7, (uchar)(((subPicture.alpha[3] & 0xf) << 4) | (subPicture.alpha[2] & 0x0f)));
-    controlHeader.replace(1 + 8, (uchar)(((subPicture.alpha[1] & 0xf) << 4) | (subPicture.alpha[0] & 0x0f)));
+  int ofs = 0;
+  for (int i = 0; i < packHeader.size(); ++i) {
+    buf.replace(ofs++, packHeader[i]);
+  }
 
-    /* coordinates of subtitle */
-    controlHeader.replace(1 + 10, (uchar)((subPicture.x() >> 4) & 0xff));
-    tmp = (subPicture.x() + bitmap.width()) - 1;
-    controlHeader.replace(1 + 11, (uchar)(((subPicture.x() & 0xf) << 4) | ((tmp >> 8) & 0xf)));
-    controlHeader.replace(1 + 12, (uchar)(tmp & 0xff));
+  // set packet length
+  tmp += stuffingBytes;
+  headerFirst.replace(4, (uchar)(tmp >> 8));
+  headerFirst.replace(5, (uchar)tmp);
 
-    int yOfs = subPicture.y() - subtitleProcessor->getCropOfsY();
-    if (yOfs < 0)
+  // set pts length
+  headerFirst.replace(8, (uchar)(5 + stuffingBytes));
+
+  // write header and use pts for stuffing bytes (if needed)
+  for (int i = 0; i < 14; ++i) {
+    buf.replace(ofs++, headerFirst[i]);
+  }
+  for (int i = 0; i < stuffingBytes; ++i) {
+    buf.replace(ofs++, (uchar)0xff);
+  }
+  for (int i = 14; i < headerFirst.size(); ++i) {
+    buf.replace(ofs++, headerFirst[i]);
+  }
+
+  // write (first part of) RLE buffer
+  tmp = sizeRLE;
+  if (numAdditionalPackets > 0) {
+    tmp = (((0x800 - packHeader.size()) - stuffingBytes) - headerFirst.size());
+    if (tmp > sizeRLE)  // can only happen in 1st buffer
     {
-        yOfs = 0;
+      tmp = sizeRLE;
     }
-    else
-    {
-        int yMax = (subPicture.screenHeight() - subPicture.imageHeight()) - (2 * subtitleProcessor->getCropOfsY());
-        if (yOfs > yMax)
-        {
-            yOfs = yMax;
-        }
+  }
+  for (int i = 0; i < tmp; ++i) {
+    if (i < even.size()) {
+      buf.replace(ofs++, even[i]);
     }
-
-    controlHeader.replace(1 + 13, (uchar)((yOfs >> 4) & 0xff));
-    tmp = (yOfs + bitmap.height()) - 1;
-    controlHeader.replace(1 + 14, (uchar)(((yOfs & 0xf) << 4) | ((tmp >> 8) & 0xf)));
-    controlHeader.replace(1 + 15, (uchar)(tmp & 0xff));
-
-    /* offset to even lines in rle buffer */
-    controlHeader.replace(1 + 17, 0x00); /* 2 bytes subpicture size and 2 bytes control header ofs */
-    controlHeader.replace(1 + 18, 0x04); /* note: SubtitleCreator uses 6 and adds 0x0000 in between */
-
-    /* offset to odd lines in rle buffer */
-    tmp = even.size() + controlHeader[1 + 18];
-    controlHeader.replace(1 + 19, (uchar)((tmp >> 8) & 0xff));
-    controlHeader.replace(1 + 20, (uchar)(tmp & 0xff));
-
-    /* display duration in frames */
-    tmp = (int)((subPicture.endTime() - subPicture.startTime()) / 1024); // 11.378ms resolution????
-    controlHeader.replace(1 + 22, (uchar)((tmp >> 8) & 0xff));
-    controlHeader.replace(1 + 23, (uchar)(tmp & 0xff));
-
-    /* offset to end sequence - 22 is the offset of the end sequence */
-    tmp = even.size() + odd.size() + 22 + (subPicture.isForced() ? 1 : 0) + 4;
-    controlHeader.replace(forcedOfs + 0, (uchar)((tmp >> 8) & 0xff));
-    controlHeader.replace(forcedOfs + 1, (uchar)(tmp & 0xff));
-    controlHeader.replace(1 + 24, (uchar)((tmp >> 8) & 0xff));
-    controlHeader.replace(1 + 25, (uchar)(tmp & 0xff));
-
-    // subpicture size
-    tmp = even.size() + odd.size() + 4 + controlHeaderLen;
-    headerFirst.replace(15, (uchar)(tmp >> 8));
-    headerFirst.replace(16, (uchar)tmp);
-
-    /* offset to control buffer - 2 is the size of the offset */
-    tmp = even.size() + odd.size() + 2;
-    headerFirst.replace(17, (uchar)(tmp >> 8));
-    headerFirst.replace(18, (uchar)tmp);
-
-    // unfortunately, the SUB format only allows 0x800 bytes to
-    // be written per packet. If a packet is larger, it has to be
-    // split into fragments <= 0x800 bytes which follow one after the other.
-
-    int sizeRLE = even.size() + odd.size();
-    int bufSize = packHeader.size() + headerFirst.size() + controlHeaderLen + sizeRLE;
-    int numAdditionalPackets = 0;
-    if (bufSize > 0x800)
-    {
-        // determine how many additional headers we will need
-        // considering that each additional header also adds to the size
-        // due to its own headers
-        numAdditionalPackets = 1;
-        int remainingRLEsize = sizeRLE  - ((0x800 - packHeader.size()) - headerFirst.size()); // size - 0x7df
-        while (remainingRLEsize > (((0x800 - packHeader.size()) - headerNext.size()) - controlHeaderLen))
-        {
-            remainingRLEsize -= ((0x800 - packHeader.size()) - headerNext.size());
-            bufSize += packHeader.size() + headerNext.size();
-            ++numAdditionalPackets;
-        }
-        // packet length of the 1st packet should be the maximum size
-        tmp = (0x800 - packHeader.size()) - 6;
+    else {
+      buf.replace(ofs++, odd[i - even.size()]);
     }
-    else
-    {
-        tmp = ((bufSize - packHeader.size()) - 6);
-    }
+  }
+  int ofsRLE = tmp;
 
-    // allocate and fill buffer
-    QList<uchar> buf((1 + numAdditionalPackets) * 0x800);
-
-    int stuffingBytes;
-    int diff = buf.size() - bufSize;
-    if (diff > 0 && diff < 6)
-    {
-        stuffingBytes = diff;
+  // fill gap in first packet with (parts of) control header
+  // only if the control header is split over two packets
+  int controlHeaderWritten = 0;
+  if (numAdditionalPackets == 1 && ofs < 0x800) {
+    for (; ofs < 0x800; ofs++) {
+      buf.replace(ofs, controlHeader[forcedOfs + (controlHeaderWritten++)]);
     }
-    else
-    {
-        stuffingBytes = 0;
-    }
+  }
 
-    int ofs = 0;
-    for (int i = 0; i < packHeader.size(); ++i)
-    {
-        buf.replace(ofs++, packHeader[i]);
+  // write additional packets
+  for (int p = 0; p < numAdditionalPackets; ++p) {
+    int rleSizeLeft;
+    if (p == (numAdditionalPackets - 1)) {
+      // last loop
+      rleSizeLeft = sizeRLE - ofsRLE;
+      tmp = ((headerNext.size() + (controlHeaderLen - controlHeaderWritten)) + (sizeRLE - ofsRLE)) - 6;
+    }
+    else {
+      tmp = (0x800 - packHeader.size()) - 6;
+      rleSizeLeft = ((0x800 - packHeader.size()) - headerNext.size());
+      // now, again, it could happen that the RLE buffer runs out before the last package
+      if (rleSizeLeft > (sizeRLE - ofsRLE)) {
+        rleSizeLeft = sizeRLE - ofsRLE;
+      }
+    }
+    // copy packet headers
+    packHeader.replace(13, (uchar)(0xf8));
+    for (int i = 0; i < packHeader.size(); ++i) {
+      buf.replace(ofs++, packHeader[i]);
     }
 
     // set packet length
-    tmp += stuffingBytes;
-    headerFirst.replace(4, (uchar)(tmp >> 8));
-    headerFirst.replace(5, (uchar)tmp);
-
-    // set pts length
-    headerFirst.replace(8, (uchar)(5 + stuffingBytes));
-
-    // write header and use pts for stuffing bytes (if needed)
-    for (int i = 0; i < 14; ++i)
-    {
-        buf.replace(ofs++, headerFirst[i]);
-    }
-    for (int i = 0; i < stuffingBytes; ++i)
-    {
-        buf.replace(ofs++, (uchar)0xff);
-    }
-    for (int i = 14; i < headerFirst.size(); ++i)
-    {
-        buf.replace(ofs++, headerFirst[i]);
+    headerNext.replace(4, (uchar)(tmp >> 8));
+    headerNext.replace(5, (uchar)tmp);
+    for (int i = 0; i < headerNext.size(); ++i) {
+      buf.replace(ofs++, headerNext[i]);
     }
 
-    // write (first part of) RLE buffer
-    tmp = sizeRLE;
-    if (numAdditionalPackets > 0)
-    {
-        tmp = (((0x800 - packHeader.size()) - stuffingBytes) - headerFirst.size());
-        if (tmp > sizeRLE) // can only happen in 1st buffer
-        {
-            tmp = sizeRLE;
-        }
+    // copy RLE buffer
+    for (int i = ofsRLE; i < (ofsRLE + rleSizeLeft); ++i) {
+      if (i < even.size()) {
+        buf.replace(ofs++, even[i]);
+      }
+      else {
+        buf.replace(ofs++, odd[i - even.size()]);
+      }
     }
-    for (int i = 0; i < tmp; ++i)
-    {
-        if (i < even.size())
-        {
-            buf.replace(ofs++, even[i]);
-        }
-        else
-        {
-            buf.replace(ofs++, odd[i - even.size()]);
-        }
-    }
-    int ofsRLE=tmp;
-
-    // fill gap in first packet with (parts of) control header
+    ofsRLE += rleSizeLeft;
+    // fill possible gap in all but last package with (parts of) control header
     // only if the control header is split over two packets
-    int controlHeaderWritten = 0;
-    if (numAdditionalPackets == 1 && ofs < 0x800)
-    {
-        for (; ofs < 0x800; ofs++)
-        {
-            buf.replace(ofs, controlHeader[forcedOfs + (controlHeaderWritten++)]);
-        }
+    // this can only happen in the package before the last one though
+    if (p != (numAdditionalPackets - 1)) {
+      for (; ofs < ((p + 2) * 0x800); ++ofs) {
+        buf.replace(ofs, controlHeader[forcedOfs + (controlHeaderWritten++)]);
+      }
     }
+  }
 
-    // write additional packets
-    for (int p = 0; p < numAdditionalPackets; ++p)
-    {
-        int rleSizeLeft;
-        if (p == (numAdditionalPackets - 1))
-        {
-            // last loop
-            rleSizeLeft = sizeRLE - ofsRLE;
-            tmp = ((headerNext.size() + (controlHeaderLen - controlHeaderWritten)) + (sizeRLE - ofsRLE)) - 6;
-        }
-        else
-        {
-            tmp = (0x800 - packHeader.size()) - 6;
-            rleSizeLeft = ((0x800 - packHeader.size()) - headerNext.size());
-            // now, again, it could happen that the RLE buffer runs out before the last package
-            if (rleSizeLeft > (sizeRLE - ofsRLE))
-            {
-                rleSizeLeft = sizeRLE - ofsRLE;
-            }
-        }
-        // copy packet headers
-        packHeader.replace(13, (uchar)(0xf8));
-        for (int i = 0; i < packHeader.size(); ++i)
-        {
-            buf.replace(ofs++, packHeader[i]);
-        }
+  // write (rest of) control header
+  for (int i = controlHeaderWritten; i < controlHeaderLen; ++i) {
+    buf.replace(ofs++, controlHeader[forcedOfs + i]);
+  }
 
-        // set packet length
-        headerNext.replace(4, (uchar)(tmp >> 8));
-        headerNext.replace(5, (uchar)tmp);
-        for (int i = 0; i < headerNext.size(); ++i)
-        {
-            buf.replace(ofs++, headerNext[i]);
-        }
-
-        // copy RLE buffer
-        for (int i = ofsRLE; i < (ofsRLE + rleSizeLeft); ++i)
-        {
-            if (i < even.size())
-            {
-                buf.replace(ofs++, even[i]);
-            }
-            else
-            {
-                buf.replace(ofs++, odd[i - even.size()]);
-            }
-        }
-        ofsRLE += rleSizeLeft;
-        // fill possible gap in all but last package with (parts of) control header
-        // only if the control header is split over two packets
-        // this can only happen in the package before the last one though
-        if (p != (numAdditionalPackets - 1))
-        {
-            for (; ofs < ((p + 2) * 0x800); ++ofs)
-            {
-                buf.replace(ofs, controlHeader[forcedOfs + (controlHeaderWritten++)]);
-            }
-        }
+  // fill rest of last packet with padding bytes
+  diff = buf.size() - ofs;
+  if (diff >= 6) {
+    diff -= 6;
+    buf.replace(ofs++, 0x00);
+    buf.replace(ofs++, 0x00);
+    buf.replace(ofs++, 0x01);
+    buf.replace(ofs++, (uchar)0xbe);
+    buf.replace(ofs++, (uchar)(diff >> 8));
+    buf.replace(ofs++, (uchar)diff);
+    for (; ofs < buf.size(); ++ofs) {
+      buf.replace(ofs, (uchar)0xff);
     }
+  }  // else should never happen due to stuffing bytes
 
-    // write (rest of) control header
-    for (int i = controlHeaderWritten; i < controlHeaderLen; ++i)
-    {
-        buf.replace(ofs++, controlHeader[forcedOfs + i]);
-    }
-
-    // fill rest of last packet with padding bytes
-    diff = buf.size() - ofs;
-    if (diff >= 6)
-    {
-        diff -= 6;
-        buf.replace(ofs++, 0x00);
-        buf.replace(ofs++, 0x00);
-        buf.replace(ofs++, 0x01);
-        buf.replace(ofs++, (uchar)0xbe);
-        buf.replace(ofs++, (uchar)(diff >> 8));
-        buf.replace(ofs++, (uchar)diff);
-        for (; ofs < buf.size(); ++ofs)
-        {
-            buf.replace(ofs, (uchar)0xff);
-        }
-    } // else should never happen due to stuffing bytes
-
-    return buf;
+  return buf;
 }
 
 void SubDVD::readIdx(int idxToRead)
@@ -1099,9 +1114,13 @@ void SubDVD::readIdx(int idxToRead)
 
     emit maxProgressChanged(subPictures.size());
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void SubDVD::writeIdx(
+  QString filename, SubPicture &subPicture, QVector<int> offsets, QVector<int> timestamps, Palette &palette)
+#else
 void SubDVD::writeIdx(QString filename, SubPicture &subPicture, QList<int> offsets,
                       QList<int> timestamps, Palette &palette)
+#endif
 {
     QScopedPointer<QFile> out(new QFile(filename));
     if (!out->open(QIODevice::WriteOnly | QIODevice::Text))

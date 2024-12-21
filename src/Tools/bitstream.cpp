@@ -18,12 +18,16 @@
  */
 
 #include "bitstream.h"
-
-BitStream::BitStream(QList<uchar> &buffer) :
-    byteOfs(0),
-    b(buffer[0] & 0xff),
-    bits(8),
-    buf(buffer)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+BitStream::BitStream(
+  QVector<uchar> &buffer)
+  :
+#else
+BitStream::BitStream(
+  QList<uchar> &buffer)
+  :
+#endif
+    byteOfs(0), b(buffer[0] & 0xff), bits(8), buf(buffer)
 {
 }
 

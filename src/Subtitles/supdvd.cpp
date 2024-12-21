@@ -88,7 +88,31 @@ SubPicture *SupDVD::subPicture(int index)
 {
     return &subPictures[index];
 }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<int> &SupDVD::getFrameAlpha(
+  int index)
+{
+  return subPictures[index].alpha;
+}
 
+QVector<int> &SupDVD::getFramePal(
+  int index)
+{
+  return subPictures[index].pal;
+}
+
+QVector<int> SupDVD::getOriginalFrameAlpha(
+  int index)
+{
+  return subPictures[index].originalAlpha;
+}
+
+QVector<int> SupDVD::getOriginalFramePal(
+  int index)
+{
+  return subPictures[index].originalPal;
+}
+#else
 QList<int> &SupDVD::getFrameAlpha(int index)
 {
     return subPictures[index].alpha;
@@ -108,13 +132,16 @@ QList<int> SupDVD::getOriginalFramePal(int index)
 {
     return subPictures[index].originalPal;
 }
+#endif
 
 void SupDVD::readIfo()
 {
     fileBuffer.reset(new FileBuffer(ifoFileName));
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> header(IFOheader.size());
+#else
     QList<uchar> header(IFOheader.size());
-
+#endif
     fileBuffer->getBytes(0, header.data(), IFOheader.size());
 
     for (int i = 0; i < IFOheader.size(); ++i)
@@ -237,70 +264,74 @@ void SupDVD::readIfo()
 
 void SupDVD::writeIfo(QString filename, SubPicture &subPicture, Palette &palette)
 {
-    QList<uchar> buf(0x1800);
-    int index = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<uchar> buf(0x1800);
+#else
+  QList<uchar> buf(0x1800);
+#endif
+  int index = 0;
 
-    // video attributes
-    int vidAttr;
-    if (subPicture.screenHeight() == 480)
-    {
-        vidAttr = 0x4f01; // NTSC
-    }
-    else
-    {
-        vidAttr = 0x5f01; // PAL
-    }
+  // video attributes
+  int vidAttr;
+  if (subPicture.screenHeight() == 480) {
+    vidAttr = 0x4f01;  // NTSC
+  }
+  else {
+    vidAttr = 0x5f01;  // PAL
+  }
 
-    // VTSI_MAT
+  // VTSI_MAT
 
-    NumberUtil::setString(buf, index, "DVDVIDEO-VTS");
-    NumberUtil::setDWord(buf, index + 0x12, 0x00000004);            // last sector of title set
-    NumberUtil::setDWord(buf, index + 0x1C, 0x00000004);            // last sector of IFO
-    NumberUtil::setDWord(buf, index + 0x80, 0x000007ff);            // end byte address of VTS_MAT
-    NumberUtil::setDWord(buf, index + 0xC8, 0x00000001);            // start sector of Title Vob (*2048 -> 0x0800) -> PTT_SRPTI
-    NumberUtil::setDWord(buf, index + 0xCC, 0x00000002);            // start sector of Titles&Chapters table (*2048 -> 0x1000) -> VTS_PGCITI
+  NumberUtil::setString(buf, index, "DVDVIDEO-VTS");
+  NumberUtil::setDWord(buf, index + 0x12, 0x00000004);  // last sector of title set
+  NumberUtil::setDWord(buf, index + 0x1C, 0x00000004);  // last sector of IFO
+  NumberUtil::setDWord(buf, index + 0x80, 0x000007ff);  // end byte address of VTS_MAT
+  NumberUtil::setDWord(buf, index + 0xC8, 0x00000001);  // start sector of Title Vob (*2048 -> 0x0800) -> PTT_SRPTI
+  NumberUtil::setDWord(buf, index + 0xCC, 0x00000002);  // start sector of Titles&Chapters table (*2048 -> 0x1000) -> VTS_PGCITI
 
-    NumberUtil::setWord(buf, index + 0x100, vidAttr);               // video attributes
-    NumberUtil::setWord(buf, index + 0x200, vidAttr);               // video attributes
+  NumberUtil::setWord(buf, index + 0x100, vidAttr);  // video attributes
+  NumberUtil::setWord(buf, index + 0x200, vidAttr);  // video attributes
 
-    QString l = subtitleProcessor->getLanguages()[subtitleProcessor->getLanguageIdx()][1];
-    NumberUtil::setWord(buf, index + 0x254, 1);                     // number of subtitle streams
-    NumberUtil::setByte(buf, index + 0x256, 1);                     // subtitle attributes
-    NumberUtil::setByte(buf, index + 0x258, l.at(0).toLatin1());
-    NumberUtil::setByte(buf, index + 0x259, l.at(1).toLatin1());
+  QString l = subtitleProcessor->getLanguages()[subtitleProcessor->getLanguageIdx()][1];
+  NumberUtil::setWord(buf, index + 0x254, 1);  // number of subtitle streams
+  NumberUtil::setByte(buf, index + 0x256, 1);  // subtitle attributes
+  NumberUtil::setByte(buf, index + 0x258, l.at(0).toLatin1());
+  NumberUtil::setByte(buf, index + 0x259, l.at(1).toLatin1());
 
-    // PTT_SRPTI
-    index = 0x0800;
-    NumberUtil::setWord(buf, index, 0x0001);                        // Number of TTUs
-    NumberUtil::setWord(buf, index + 0x04, 0x000f);                 // End byte of PTT_SRPT table
-    NumberUtil::setDWord(buf, index + 0x04, 0x0000000C);            // TTU_1: starting byte
-    NumberUtil::setWord(buf, index + 0x0C, 0x0001);                 // PTT_1: program chain number PGCN
-    NumberUtil::setWord(buf, index + 0x0e, 0x0001);                 // PTT_1: program number PG
+  // PTT_SRPTI
+  index = 0x0800;
+  NumberUtil::setWord(buf, index, 0x0001);              // Number of TTUs
+  NumberUtil::setWord(buf, index + 0x04, 0x000f);       // End byte of PTT_SRPT table
+  NumberUtil::setDWord(buf, index + 0x04, 0x0000000C);  // TTU_1: starting byte
+  NumberUtil::setWord(buf, index + 0x0C, 0x0001);       // PTT_1: program chain number PGCN
+  NumberUtil::setWord(buf, index + 0x0e, 0x0001);       // PTT_1: program number PG
 
-    // VTS_PGCITI/VTS_PTT_SRPT
-    index = 0x1000;
-    NumberUtil::setWord(buf, index, 0x0001);                        // Number of VTS_PGCI_SRP (2 bytes, 2 bytes reserved)
-    NumberUtil::setDWord(buf, index + 0x04, 0x00000119);            // end byte of VTS_PGCI_SRP table (281)
-    NumberUtil::setDWord(buf, index + 0x08, 0x81000000);            // VTS_PGC_1_ category mask. entry PGC (0x80), title number 1 (0x01), Category 0,...
-    NumberUtil::setDWord(buf, index + 0x0C, 0x00000010);            // VTS_PGCI start byte (16)
+  // VTS_PGCITI/VTS_PTT_SRPT
+  index = 0x1000;
+  NumberUtil::setWord(buf, index, 0x0001);              // Number of VTS_PGCI_SRP (2 bytes, 2 bytes reserved)
+  NumberUtil::setDWord(buf, index + 0x04, 0x00000119);  // end byte of VTS_PGCI_SRP table (281)
+  NumberUtil::setDWord(buf, index + 0x08, 0x81000000);  // VTS_PGC_1_ category mask. entry PGC (0x80), title number 1 (0x01), Category 0,...
+  NumberUtil::setDWord(buf, index + 0x0C, 0x00000010);  // VTS_PGCI start byte (16)
 
-    // VTS_PGC_1
-    index = 0x1010;
-    NumberUtil::setByte(buf, index + 0x02, 0x01);                   // Number of Programs
-    NumberUtil::setByte(buf, index + 0x03, 0x01);                   // Number of Cells
-    for (int i = 0; i < 16; ++i)
-    {
-        QList<int> ycbcr = palette.YCbCr(i);
-        NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 1, ycbcr[0]);
-        NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 2, ycbcr[1]);
-        NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 3, ycbcr[2]);
-    }
-    QScopedPointer<QFile> out(new QFile(filename));
-    if (!out->open(QIODevice::WriteOnly))
-    {
-        throw QString("File: '%1' can not be opened for writing.").arg(filename);
-    }
-    out->write((char*)buf.data(), buf.size());
+  // VTS_PGC_1
+  index = 0x1010;
+  NumberUtil::setByte(buf, index + 0x02, 0x01);  // Number of Programs
+  NumberUtil::setByte(buf, index + 0x03, 0x01);  // Number of Cells
+  for (int i = 0; i < 16; ++i) {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> ycbcr = palette.YCbCr(i);
+#else
+    QList<int> ycbcr = palette.YCbCr(i);
+#endif
+    NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 1, ycbcr[0]);
+    NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 2, ycbcr[1]);
+    NumberUtil::setByte(buf, index + 0xA4 + (4 * i) + 3, ycbcr[2]);
+  }
+  QScopedPointer<QFile> out(new QFile(filename));
+  if (!out->open(QIODevice::WriteOnly)) {
+    throw QString("File: '%1' can not be opened for writing.").arg(filename);
+  }
+  out->write((char *)buf.data(), buf.size());
 }
 
 void SupDVD::readAllSupFrames()
@@ -337,12 +368,21 @@ void SupDVD::setSrcPalette(Palette &palette)
 {
     srcPalette = palette;
 }
-
-QList<uchar> SupDVD::createSupFrame(SubPictureDVD &subPicture, Bitmap &bitmap)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+QVector<uchar> SupDVD::createSupFrame(
+  SubPictureDVD &subPicture, Bitmap &bitmap)
 {
     /* create RLE buffers */
-    QList<uchar> even = encodeLines(bitmap, true);
-    QList<uchar> odd  = encodeLines(bitmap, false);
+    QVector<uchar> even = encodeLines(bitmap, true);
+    QVector<uchar> odd = encodeLines(bitmap, false);
+#else
+QList<uchar> SupDVD::createSupFrame(
+  SubPictureDVD &subPicture, Bitmap &bitmap)
+{
+  /* create RLE buffers */
+  QList<uchar> even = encodeLines(bitmap, true);
+  QList<uchar> odd = encodeLines(bitmap, false);
+#endif
     int tmp;
 
     int forcedOfs;
@@ -366,8 +406,11 @@ QList<uchar> SupDVD::createSupFrame(SubPictureDVD &subPicture, Bitmap &bitmap)
     // fill out all info but the offets (determined later)
     int sizeRLE = even.size() + odd.size();
     int bufSize = 10 + 4 + controlHeaderLen + sizeRLE;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> buf(bufSize);
+#else
     QList<uchar> buf(bufSize);
-
+#endif
     // write header
     buf.replace(0, 0x53);
     buf.replace(1, 0x50);
@@ -497,17 +540,27 @@ qint64 SupDVD::readSupFrame(qint64 ofs)
     }
     ctrlOfs = ctrlOfsRel + ofs;			// absolute offset of control header
     ofs += 2;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    pic.rleFragments = QVector<ImageObjectFragment>();
+#else
     pic.rleFragments = QList<ImageObjectFragment>();
+#endif
     rleFrag = ImageObjectFragment();
     rleFrag.setImageBufferOffset(ofs);
     rleFrag.setImagePacketSize(rleSize);
     pic.rleFragments.push_back(rleFrag);
     pic.setRleSize(rleSize);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    pic.pal = QVector<int>(4);
+    pic.alpha = QVector<int>(4);
+    int alphaSum = 0;
+    QVector<int> alphaUpdate(4);
+#else
     pic.pal = QList<int>(4);
     pic.alpha = QList<int>(4);
     int alphaSum = 0;
     QList<int> alphaUpdate(4);
+#endif
     int alphaUpdateSum;
     int delay = -1;
     bool ColAlphaUpdate = false;
@@ -515,7 +568,11 @@ qint64 SupDVD::readSupFrame(qint64 ofs)
     subtitleProcessor->print(QString("SP_DCSQT at ofs: %1\n").arg(QString::number(ctrlOfs, 16), 8, QChar('0')));
 
     // copy control header in buffer (to be more compatible with VobSub)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> ctrlHeader(ctrlSize);
+#else
     QList<uchar> ctrlHeader(ctrlSize);
+#endif
     for (int i = 0; i < ctrlSize; ++i)
     {
         ctrlHeader.replace(i, (uchar)fileBuffer->getByte(ctrlOfs + i));

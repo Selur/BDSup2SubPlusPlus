@@ -27,6 +27,12 @@
 #include <QDialog>
 #endif
 
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
+#include <QList>
+#endif
+
 class SubtitleProcessor;
 
 namespace Ui {
@@ -66,10 +72,17 @@ private:
     QStringList colorNames = {	"00", "01", "02", "03", "04", "05", "06" ,"07",
                                 "08", "09", "10", "11", "12", "13", "14", "15"
                              };
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QIcon> colorIcons;
+    int index;
+    QVector<int> alpha;
+    QVector<int> pal;
+#else
     QList<QIcon> colorIcons;
     int index;
     QList<int> alpha;
     QList<int> pal;
+#endif
 };
 
 #endif // FRAMEPALETTEDIALOG_H

@@ -20,24 +20,35 @@
 #ifndef BITSTREAM_H
 #define BITSTREAM_H
 
-#include <QList>
+// #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+// #else
+// #include <QList>
+// #endif
 
 class BitStream
 {
 public:
-    BitStream(QList<uchar> &buffer);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  BitStream(QVector<uchar> &buffer);
+#else
+  BitStream(QList<uchar> &buffer);
+#endif
 
-    void syncToByte();
+  void syncToByte();
 
-    int bitsLeft() { return (8 * (buf.size() - byteOfs)) - (8 - bits); }
-    int readBits(int n);
+  int bitsLeft() { return (8 * (buf.size() - byteOfs)) - (8 - bits); }
+  int readBits(int n);
 
 private:
     int byteOfs;
     int b;
     int bits;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> buf;
+#else
     QList<uchar> buf;
+#endif
 };
 
 #endif // BITSTREAM_H

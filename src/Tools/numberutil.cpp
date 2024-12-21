@@ -18,8 +18,13 @@
  */
 
 #include "numberutil.h"
-
-void NumberUtil::setString(QList<uchar> &buf, int index, QString string)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void NumberUtil::setString(
+  QVector<uchar> &buf, int index, QString string)
+#else
+void NumberUtil::setString(
+  QList<uchar> &buf, int index, QString string)
+#endif
 {
     for (int i = 0; i < string.size(); ++i)
     {

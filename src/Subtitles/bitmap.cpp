@@ -27,8 +27,6 @@
 #include <QHash>
 #include <QFile>
 #include <QRect>
-#include <QList>
-
 #include <cassert>
 
 Bitmap::Bitmap()
@@ -63,23 +61,24 @@ Bitmap::Bitmap(QImage image) :
 
 QRect Bitmap::bounds(Palette &palette, int alphaThreshold)
 {
-    QList<QRgb> a = palette.colorTable();
-    int xMin, xMax, yMin, yMax;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<QRgb> a = palette.colorTable();
+#else
+  QList<QRgb> a = palette.colorTable();
+#endif
+  int xMin, xMax, yMin, yMax;
 
-    yMax = subtitleImage.height() - 1;
-    for (int y = yMax; y > 0; --y, --yMax)
-    {
-        uchar * pixels = subtitleImage.scanLine(y);
-        for (int x = 0; x < subtitleImage.width(); ++x)
-        {
-            int idx = pixels[x] & 0xff;
-            int alpha = qAlpha(a[idx]);
-            if (alpha >= alphaThreshold)
-            {
-                goto loop1;
-            }
-        }
+  yMax = subtitleImage.height() - 1;
+  for (int y = yMax; y > 0; --y, --yMax) {
+    uchar *pixels = subtitleImage.scanLine(y);
+    for (int x = 0; x < subtitleImage.width(); ++x) {
+      int idx = pixels[x] & 0xff;
+      int alpha = qAlpha(a[idx]);
+      if (alpha >= alphaThreshold) {
+        goto loop1;
+      }
     }
+  }
     loop1:
 
     yMin = 0;
@@ -192,150 +191,148 @@ int Bitmap::primaryColorIndex(Palette &palette, int alphaThreshold)
     free(histogram);
     return color;
 }
-
-Bitmap Bitmap::convertLm(Palette &palette, int alphaThreshold, QList<int>& lumaThreshold)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+Bitmap Bitmap::convertLm(
+  Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold)
 {
-    QList<uchar> cy = palette.Y();
-    QList<QRgb> a = palette.colorTable();
+  QVector<uchar> cy = palette.Y();
+  QVector<QRgb> a = palette.colorTable();
+#else
+Bitmap Bitmap::convertLm(
+  Palette &palette, int alphaThreshold, QList<int> &lumaThreshold)
+{
+  QList<uchar> cy = palette.Y();
+  QList<QRgb> a = palette.colorTable();
+#endif
+  int height = subtitleImage.height();
+  int width = subtitleImage.width();
 
-    int height = subtitleImage.height();
-    int width = subtitleImage.width();
+  Bitmap bm(width, height);
 
-    Bitmap bm(width, height);
+  uchar *sourcePixels = subtitleImage.scanLine(0);
+  int sourcePitch = subtitleImage.bytesPerLine();
 
-    uchar* sourcePixels = subtitleImage.scanLine(0);
-    int sourcePitch = subtitleImage.bytesPerLine();
+  QImage &destImage = bm.image();
 
-    QImage &destImage = bm.image();
+  uchar *destPixels = destImage.scanLine(0);
+  int destPitch = destImage.bytesPerLine();
 
-    uchar *destPixels = destImage.scanLine(0);
-    int destPitch = destImage.bytesPerLine();
+  // select nearest colors in existing palette
+  QHash<int, int> p;
 
-    // select nearest colors in existing palette
-    QHash<int, int> p;
+  for (int i = 0; i < height; ++i) {
+    for (int j = 0; j < width; ++j) {
+      int colIdx;
+      int idx = sourcePixels[j] & 0xff;
+      int alpha = qAlpha(a[idx]);
+      int cyp = cy.at(idx) & 0xff;
 
-    for (int i = 0; i < height; ++i)
-    {
-        for (int j = 0; j < width; ++j)
-        {
-            int colIdx;
-            int idx = sourcePixels[j] & 0xff;
-            int alpha = qAlpha(a[idx]);
-            int cyp = cy.at(idx) & 0xff;
+      int key = ((alpha << 8) | cyp);
+      if (p.contains(key)) {
+        colIdx = p[key];
+      }
+      else {
+        colIdx = 0;
 
-            int key = ((alpha << 8) | cyp);
-            if (p.contains(key))
-            {
-                colIdx = p[key];
-            }
-            else
-            {
-                colIdx = 0;
-
-                // determine index in target
-                if (alpha < alphaThreshold)
-                {
-                    colIdx = 0; // transparent color
-                }
-                else
-                {
-                    colIdx = 1; // default: lightest color
-                    for (int n = 0; n < lumaThreshold.size(); ++n)
-                    {
-                        if (cyp > lumaThreshold.at(n))
-                        {
-                            break;
-                        }
-                        ++colIdx; // try next darker color
-                    }
-                }
-                p.insert(key, colIdx);
-            }
-            // write target pixel
-            destPixels[j] = (uchar) colIdx;
+        // determine index in target
+        if (alpha < alphaThreshold) {
+          colIdx = 0;  // transparent color
         }
-        sourcePixels += sourcePitch;
-        destPixels += destPitch;
+        else {
+          colIdx = 1;  // default: lightest color
+          for (int n = 0; n < lumaThreshold.size(); ++n) {
+            if (cyp > lumaThreshold.at(n)) {
+              break;
+            }
+            ++colIdx;  // try next darker color
+          }
+        }
+        p.insert(key, colIdx);
+      }
+      // write target pixel
+      destPixels[j] = (uchar)colIdx;
     }
-    return bm;
+    sourcePixels += sourcePitch;
+    destPixels += destPitch;
+  }
+  return bm;
 }
 
 Bitmap Bitmap::scaleFilter(int sizeX, int sizeY, Palette &palette, Filter &filter)
 {
-    QList<QRgb> rgb = palette.colorTable();
+  FilterOp filterOp(filter);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<QRgb> rgb = palette.colorTable();
+  QVector<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
+#else
+  QList<QRgb> rgb = palette.colorTable();
+  QList<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
+#endif
+  Bitmap bm(sizeX, sizeY);
 
-    FilterOp filterOp(filter);
-    QList<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
+  // select nearest colors in existing palette
+  QHash<QRgb, int> p;
+  int offset = 0;
 
-    Bitmap bm(sizeX, sizeY);
+  int width = bm.image().width();
+  int height = bm.image().height();
 
-    // select nearest colors in existing palette
-    QHash<QRgb, int> p;
-    int offset = 0;
+  QImage image(bm.image().bits(), width, height, bm.image().format());
+  image.setColorTable(palette.colorTable());
 
-    int width = bm.image().width();
-    int height = bm.image().height();
+  uchar *pixels = image.scanLine(0);
+  int sourcePitch = image.bytesPerLine();
 
-    QImage image(bm.image().bits(), width, height, bm.image().format());
-    image.setColorTable(palette.colorTable());
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      offset = (y * sizeX) + x;
+      QRgb color = trg[offset];
+      int colIdx;
+      if (p.contains(color)) {
+        colIdx = p.value(color);
+      }
+      else {
+        colIdx = 0;
+        int minDistance = 0xffffff;  // init > 0xff*0xff*4 = 0x03f804
+        int alpha = qAlpha(color);
+        int red = qRed(color);
+        int green = qGreen(color);
+        int blue = qBlue(color);
+        for (int idx = 0; idx < palette.size(); ++idx) {
+          // distance vector (skip sqrt)
+          int ad = alpha - qAlpha(rgb[idx]);
+          int rd = red - qRed(rgb[idx]);
+          int gd = green - qGreen(rgb[idx]);
+          int bd = blue - qBlue(rgb[idx]);
 
-    uchar* pixels = image.scanLine(0);
-    int sourcePitch = image.bytesPerLine();
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            offset = (y * sizeX) + x;
-            QRgb color = trg[offset];
-            int colIdx;
-            if (p.contains(color))
-            {
-                colIdx = p.value(color);
+          int distance = (rd * rd) + (gd * gd) + (bd * bd) + (ad * ad);
+          // new minimum distance ?
+          if (distance < minDistance) {
+            colIdx = idx;
+            minDistance = distance;
+            if (minDistance == 0) {
+              break;
             }
-            else
-            {
-                colIdx = 0;
-                int minDistance = 0xffffff; // init > 0xff*0xff*4 = 0x03f804
-                int alpha = qAlpha(color);
-                int red = qRed(color);
-                int green = qGreen(color);
-                int blue = qBlue(color);
-                for (int idx = 0; idx < palette.size(); ++idx)
-                {
-                    // distance vector (skip sqrt)
-                    int ad = alpha - qAlpha(rgb[idx]);
-                    int rd = red - qRed(rgb[idx]);
-                    int gd = green - qGreen(rgb[idx]);
-                    int bd = blue - qBlue(rgb[idx]);
-
-                    int distance = (rd * rd) + (gd * gd) + (bd * bd) + (ad * ad);
-                    // new minimum distance ?
-                    if (distance < minDistance)
-                    {
-                        colIdx = idx;
-                        minDistance = distance;
-                        if (minDistance == 0)
-                        {
-                            break;
-                        }
-                    }
-                }
-                p.insert(color, colIdx);
-            }
-            // write target pixel
-            pixels[x] = (uchar)colIdx;
+          }
         }
-        pixels += sourcePitch;
+        p.insert(color, colIdx);
+      }
+      // write target pixel
+      pixels[x] = (uchar)colIdx;
     }
-    return bm;
+    pixels += sourcePitch;
+  }
+  return bm;
 }
 
 PaletteBitmap Bitmap::scaleFilter(int sizeX, int sizeY, Palette &palette, Filter &filter, bool dither)
 {
     FilterOp fOp(filter);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> trgPixels = fOp.filter(*this, palette, sizeX, sizeY);
+#else
     QList<QRgb> trgPixels = fOp.filter(*this, palette, sizeX, sizeY);
-
+#endif
     QImage trg(sizeX, sizeY, QImage::Format_ARGB32);
     int offset = 0;
 
@@ -355,7 +352,11 @@ PaletteBitmap Bitmap::scaleFilter(int sizeX, int sizeY, Palette &palette, Filter
     // quantize image
     QuantizeFilter qf;
     Bitmap bm(sizeX, sizeY);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> ct = qf.quantize(trg, &bm.image(), sizeX, sizeY, 255, dither, dither);
+#else
     QList<QRgb> ct = qf.quantize(trg, &bm.image(), sizeX, sizeY, 255, dither, dither);
+#endif
     int size = ct.size();
     size = std::min(size, 255);
 
@@ -370,11 +371,19 @@ PaletteBitmap Bitmap::scaleFilter(int sizeX, int sizeY, Palette &palette, Filter
     return bitmap;
 }
 
-Bitmap Bitmap::scaleFilterLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold, Filter &filter)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+Bitmap Bitmap::scaleFilterLm(
+  int sizeX, int sizeY, Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold, Filter &filter)
 {
     FilterOp filterOp(filter);
-    QList<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
-
+    QVector<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
+#else
+Bitmap Bitmap::scaleFilterLm(
+  int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold, Filter &filter)
+{
+  FilterOp filterOp(filter);
+  QList<QRgb> trg = filterOp.filter(*this, palette, sizeX, sizeY);
+#endif
     Bitmap bm(sizeX, sizeY);
 
     // select nearest colors in existing palette
@@ -660,7 +669,11 @@ PaletteBitmap Bitmap::scaleBilinear(int sizeX, int sizeY, Palette &palette, bool
     // quantize image
     QuantizeFilter qf;
     Bitmap bm(sizeX, sizeY, QImage::Format_Indexed8);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QRgb> ct = qf.quantize(trg, &bm.image(), sizeX, sizeY, 255, dither, dither);
+#else
     QList<QRgb> ct = qf.quantize(trg, &bm.image(), sizeX, sizeY, 255, dither, dither);
+#endif
     int size = ct.size();
     size = std::min(size, 255);
 
@@ -682,8 +695,13 @@ QImage Bitmap::image(Palette &palette)
     newImage.setColorTable(palette.colorTable());
     return newImage;
 }
-
-Bitmap Bitmap::scaleBilinearLm(int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold)
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+Bitmap Bitmap::scaleBilinearLm(
+  int sizeX, int sizeY, Palette &palette, int alphaThreshold, QVector<int> &lumaThreshold)
+#else
+Bitmap Bitmap::scaleBilinearLm(
+  int sizeX, int sizeY, Palette &palette, int alphaThreshold, QList<int> &lumaThreshold)
+#endif
 {
     const uchar *cy = palette.Y().constData();
     const QRgb *a = palette.colorTable().constData();

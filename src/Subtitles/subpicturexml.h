@@ -44,15 +44,21 @@ public:
     void setOriginalX(int originalX) { origX = originalX; }
     int originalY() { return origY; }
     void setOriginalY(int originalY) { origY = originalY; }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QString> fileNames() { return filenames; }
+#else
     QList<QString> fileNames() { return filenames; }
+#endif
     void setFileName(QString fileName) { filenames.push_back(fileName); }
 
 private:
     int origX = 0;
     int origY = 0;
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QString> filenames;
+#else
     QList<QString> filenames;
-
+#endif
     friend class SupXML;
 };
 

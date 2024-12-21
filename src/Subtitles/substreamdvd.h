@@ -21,7 +21,11 @@
 #define SUBSTREAMDVD_H
 
 #include <QtCore/QScopedPointer>
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#include <QVector>
+#else
 #include <QList>
+#endif
 #include <QImage>
 
 #include <Subtitles/bitmap.h>
@@ -45,14 +49,21 @@ public:
 
     virtual Palette &getSrcPalette() = 0;
     static Palette decodePalette(SubPictureDVD &pic, Palette &palette, int alphaCrop);
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<uchar> encodeLines(Bitmap &bitmap, bool even);
+    virtual QVector<int> &getFrameAlpha(int index) = 0;
+    virtual QVector<int> &getFramePal(int index) = 0;
+    virtual QVector<int> getOriginalFrameAlpha(int index) = 0;
+    virtual QVector<int> getOriginalFramePal(int index) = 0;
+#else
     QList<uchar> encodeLines(Bitmap &bitmap, bool even);
     virtual QList<int> &getFrameAlpha(int index) = 0;
     virtual QList<int> &getFramePal(int index) = 0;
     virtual QList<int> getOriginalFrameAlpha(int index) = 0;
     virtual QList<int> getOriginalFramePal(int index) = 0;
+#endif
 
-protected:
+  protected:
     Bitmap _bitmap;
 
     Palette srcPalette;
@@ -61,9 +72,13 @@ protected:
     SubtitleProcessor* subtitleProcessor = 0;
 
     QScopedPointer<FileBuffer> fileBuffer;
-
-    QList<int> lastAlpha = { 0, 0xf, 0xf, 0xf };
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<int> lastAlpha = {0, 0xf, 0xf, 0xf};
+    QVector<SubPictureDVD> subPictures;
+#else
+    QList<int> lastAlpha = {0, 0xf, 0xf, 0xf};
     QList<SubPictureDVD> subPictures;
+#endif
 
     int screenWidth = 720;
     int screenHeight = 576;
@@ -74,9 +89,13 @@ protected:
     int _primaryColorIndex = 0;
 
 private:
-    void decodeLine(QList<uchar> src, int srcOfs, int srcLen, QImage &trg, int trgOfs, int width, int maxPixels);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  void decodeLine(QVector<uchar> src, int srcOfs, int srcLen, QImage &trg, int trgOfs, int width, int maxPixels);
+#else
+  void decodeLine(QList<uchar> src, int srcOfs, int srcLen, QImage &trg, int trgOfs, int width, int maxPixels);
+#endif
 
-    Bitmap decodeImage(SubPictureDVD &pic, int transIdx);
+  Bitmap decodeImage(SubPictureDVD &pic, int transIdx);
 };
 
 #endif // SUBSTREAMDVD_H

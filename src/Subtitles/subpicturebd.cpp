@@ -36,13 +36,16 @@ SubPictureBD::SubPictureBD(const SubPictureBD *other) :
     }
     QList<int> keys = other->palettes.keys();
     int i = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    for (QVector<PaletteInfo> paletteInfos : other->palettes)
+#else
     for (QList<PaletteInfo> paletteInfos : other->palettes)
+#endif
     {
-        for (PaletteInfo paletteInfo : paletteInfos)
-        {
-            palettes[keys[i]].push_back(PaletteInfo(paletteInfo));
-        }
-        ++i;
+      for (PaletteInfo paletteInfo : paletteInfos) {
+        palettes[keys[i]].push_back(PaletteInfo(paletteInfo));
+      }
+      ++i;
     }
 }
 
@@ -57,15 +60,19 @@ SubPictureBD::SubPictureBD(const SubPictureBD &other) :
     {
         imageObjectList[imageObject.objectID()] = imageObject;
     }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     QList<int> keys = other.palettes.keys();
     int i = 0;
-    for (QList<PaletteInfo> paletteInfos : other.palettes)
-    {
-        for (PaletteInfo paletteInfo : paletteInfos)
-        {
-            palettes[keys[i]].push_back(PaletteInfo(paletteInfo));
-        }
-        ++i;
+    for (QVector<PaletteInfo> paletteInfos : other.palettes) {
+#else
+    QList<int> keys = other.palettes.keys();
+    int i = 0;
+    for (QList<PaletteInfo> paletteInfos : other.palettes) {
+#endif
+      for (PaletteInfo paletteInfo : paletteInfos) {
+        palettes[keys[i]].push_back(PaletteInfo(paletteInfo));
+      }
+      ++i;
     }
 }
 
@@ -73,8 +80,12 @@ SubPicture* SubPictureBD::copy()
 {
     return new SubPictureBD(this);
 }
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+void SubPictureBD::setData(
+  const PCS &pcs, QMap<int, QVector<ODS>> ods, QMap<int, QVector<PaletteInfo>> pds, const WDS &wds)
+#else
 void SubPictureBD::setData(const PCS &pcs, QMap<int, QList<ODS>> ods, QMap<int, QList<PaletteInfo>> pds, const WDS &wds)
+#endif
 {
     start = pcs.pts;
     _screenWidth = pcs.videoWidth;

@@ -41,13 +41,23 @@ class ColorDialog : public QDialog
 public:
     explicit ColorDialog(QWidget *parent = 0, SubtitleProcessor* subtitleProcessor = 0);
     ~ColorDialog();
-
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    void setParameters(QStringList names, QVector<QColor> currentColor, QVector<QColor> defaultColor);
+    void setPath(
+      QString value)
+    {
+      colorPath = value;
+    }
+    QString getPath() { return colorPath; }
+    QVector<QColor> getColors() { return selectedColors; }
+#else
     void setParameters(QStringList names, QList<QColor> currentColor, QList<QColor> defaultColor);
     void setPath(QString value) { colorPath = value; }
     QString getPath() { return colorPath; }
     QList<QColor> getColors() { return selectedColors; }
-    
-private slots:
+#endif
+
+  private slots:
     void on_colorList_doubleClicked(const QModelIndex &index);
     void on_changeColorButton_clicked();
     void on_restoreDefaultColorsButton_clicked();
@@ -59,9 +69,15 @@ private slots:
 private:
     Ui::ColorDialog *ui;
     SubtitleProcessor* subtitleProcessor = 0;
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+    QVector<QIcon> colorIcons;
+    QVector<QColor> selectedColors;
+    QVector<QColor> defaultColors;
+#else
     QList<QIcon> colorIcons;
     QList<QColor> selectedColors;
     QList<QColor> defaultColors;
+#endif
     QStringList colorNames;
     QString colorPath;
 

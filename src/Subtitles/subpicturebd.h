@@ -170,11 +170,12 @@ public:
     {
         bool isForced = false;
 
-        for (int i = 0; i < imageObjectList.size(); ++i)
+        // imageObjectList is keyed by object id: iterate it, imageObjectList[i] would insert the missing ids
+        for (ImageObject& imageObject : imageObjectList)
         {
-            if (imageObjectList[i].fragmentList().size() > 0)
+            if (imageObject.fragmentList().size() > 0)
             {
-                isForced |= imageObjectList[i].isForced();
+                isForced |= imageObject.isForced();
             }
         }
         return isForced;
@@ -182,12 +183,12 @@ public:
 
     void setForced(bool isForced)
     {
-        for (int i = 0; i < imageObjectList.size(); ++i)
+        for (auto it = imageObjectList.begin(); it != imageObjectList.end(); ++it)
         {
-            if (!imageObjectList[i].fragmentList().empty())
+            if (!it.value().fragmentList().empty())
             {
-                imageObjectList[i].setForcedFlags(isForced ? 0x40 : 0);
-                forcedFlags[i] = imageObjectList[i].forcedFlags();
+                it.value().setForcedFlags(isForced ? 0x40 : 0);
+                forcedFlags[it.key()] = it.value().forcedFlags();
             }
         }
     }

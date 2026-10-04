@@ -89,9 +89,9 @@ qint64 SupBD::startOffset(
   int index)
 {
   // return offset of first imageobject with image fragments
-  for (int i = 0; i < subPictures[index].imageObjectList.size(); ++i) {
-    if (subPictures[index].imageObjectList[i].fragmentList().size() > 0) {
-      return subPictures[index].imageObjectList[i].fragmentList()[0].imageBufferOffset();
+  for (ImageObject& imageObject : subPictures[index].imageObjectList) {
+    if (imageObject.fragmentList().size() > 0) {
+      return imageObject.fragmentList()[0].imageBufferOffset();
     }
   }
   return 0;
@@ -381,8 +381,8 @@ bool SupBD::imagesAreMergeable(
   if (std::abs(prevSub.endTime() - currentSub.startTime()) < 10 && prevSub.imageWidth() == currentSub.imageWidth()
       && prevSub.imageHeight() == currentSub.imageHeight())
   {
-    if (!currentSub.imageObjectList.empty() && !currentSub.imageObjectList[0].fragmentList().empty() && !prevSub.imageObjectList.empty()
-        && !prevSub.imageObjectList[0].fragmentList().empty())
+    if (!currentSub.imageObjectList.empty() && !currentSub.imageObjectList.value(0).fragmentList().empty() && !prevSub.imageObjectList.empty()
+        && !prevSub.imageObjectList.value(0).fragmentList().empty())
     {
 #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
       QVector<uchar> curImageBuf, prevImageBuf;
@@ -1297,10 +1297,10 @@ Bitmap SupBD::decodeImage(
 #else
   QList<int> objectIdxes;
 #endif
-  for (int i = 0; i < subPicture->imageObjectList.size(); ++i) {
-    if (subPicture->imageObjectList[i].bufferSize() > 0) {
+  for (auto it = subPicture->imageObjectList.begin(); it != subPicture->imageObjectList.end(); ++it) {
+    if (it.value().bufferSize() > 0) {
       ++numImgObj;
-      objectIdxes.push_back(i);
+      objectIdxes.push_back(it.key());
     }
   }
 
@@ -1349,10 +1349,31 @@ Bitmap SupBD::decodeImage(
     uchar *pixels = bm.image().bits();
     int pitch = bm.image().bytesPerLine();
 
+    // The RLE data is not trusted: a run or a line end that does not fit the bitmap must neither write behind the pixel
+    // buffer nor read behind the packet data, so both are clamped and reported once per image.
+    const int pixelLimit = pitch * h;
+    bool rleOverrun = false;
+    const auto readByte = [&]() -> int {
+      if (index >= buf.size()) {
+        rleOverrun = true;
+        return 0;
+      }
+      return buf[index++] & 0xff;
+    };
+    const auto fill = [&](int count, uchar value) {
+      for (int k = 0; k < count; ++k) {
+        if (ofs >= pixelLimit) {
+          rleOverrun = true;
+          return;
+        }
+        pixels[ofs++] = value;
+      }
+    };
+
     do {
-      b = buf[index++] & 0xff;
+      b = readByte();
       if (b == 0) {
-        b = buf[index++] & 0xff;
+        b = readByte();
         if (b == 0) {
           // next line
           ofs = (ofs / pitch) * pitch;
@@ -1364,47 +1385,42 @@ Bitmap SupBD::decodeImage(
         else {
           if ((b & 0xC0) == 0x40) {
             // 00 4x xx -> xxx zeroes
-            size = ((b - 0x40) << 8) + (buf[index++] & 0xff);
-
-            for (int i = 0; i < size; ++i) {
-              pixels[ofs++] = 0; /*(uchar)b;*/
-            }
+            size = ((b - 0x40) << 8) + readByte();
+            fill(size, 0);
             xpos += size;
           }
           else if ((b & 0xC0) == 0x80) {
             // 00 8x yy -> x times value y
             size = (b - 0x80);
-            b = buf[index++] & 0xff;
-
-            for (int i = 0; i < size; ++i) {
-              pixels[ofs++] = (uchar)b;
-            }
+            b = readByte();
+            fill(size, (uchar)b);
             xpos += size;
           }
           else if ((b & 0xC0) != 0) {
             // 00 cx yy zz -> xyy times value z
-            size = ((b - 0xC0) << 8) + (buf[index++] & 0xff);
-            b = buf[index++] & 0xff;
-
-            for (int i = 0; i < size; ++i) {
-              pixels[ofs++] = (uchar)b;
-            }
+            size = ((b - 0xC0) << 8) + readByte();
+            b = readByte();
+            fill(size, (uchar)b);
             xpos += size;
           }
           else {
             // 00 xx -> xx times 0
-            for (int i = 0; i < b; ++i) {
-              pixels[ofs++] = 0;
-            }
+            fill(b, 0);
             xpos += b;
           }
         }
       }
       else {
-        pixels[ofs++] = (uchar)b;
+        fill(1, (uchar)b);
         xpos++;
       }
     } while (index < buf.size());
+    if (rleOverrun) {
+      subtitleProcessor->printWarning(QString("RLE data exceeds the %1x%2 image at offset 0x%3 -> clipped\n")
+                                        .arg(w)
+                                        .arg(h)
+                                        .arg(QString::number(startOfs, 16), 8, QChar('0')));
+    }
     bitmaps[i] = bm;
   }
 

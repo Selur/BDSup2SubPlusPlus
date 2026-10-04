@@ -73,23 +73,20 @@ Palette::Palette(
 {
   int size = qMin(qMin(qMin(inRed.size(), inGreen.size()), inBlue.size()), inAlpha.size());
   for (int i = 0; i < size; ++i) {
-    {
-        colors.push_back(qRgba(inRed.at(i), inGreen.at(i), inBlue.at(i), inAlpha.at(i)));
-    }
-#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
-    QVector<int> yCbCr;
-#else
-    QList<int> yCbCr;
-#endif
-    for (int i = 0; i < colors.size(); ++i)
-    {
-        yCbCr = RGB2YCbCr(colors.at(i), useBT601);
-        y.push_back(yCbCr[0]);
-        cb.push_back(yCbCr[1]);
-        cr.push_back(yCbCr[2]);
-    }
-    paletteSize = colors.size();
+    colors.push_back(qRgba(inRed.at(i), inGreen.at(i), inBlue.at(i), inAlpha.at(i)));
   }
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QVector<int> yCbCr;
+#else
+  QList<int> yCbCr;
+#endif
+  for (int i = 0; i < colors.size(); ++i) {
+    yCbCr = RGB2YCbCr(colors.at(i), useBT601);
+    y.push_back(yCbCr[0]);
+    cb.push_back(yCbCr[1]);
+    cr.push_back(yCbCr[2]);
+  }
+  paletteSize = colors.size();
 }
 Palette::~Palette()
 {

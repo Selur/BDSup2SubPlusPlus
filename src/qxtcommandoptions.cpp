@@ -36,6 +36,8 @@
 #include <QtDebug>
 #include <QDir>
 
+#include <deque>
+
 /*!
 \class QxtCommandOptions
 
@@ -204,8 +206,8 @@ struct QxtCommandOption
     QString canonicalName;  // name used for alias()/count()/value()
     QString desc;           // documentation string
     QStringList values;     // values passed on command line
-    QxtCommandOptions::ParamTypes paramType;    // flags
-    quint16 group;          // mutual exclusion group
+    QxtCommandOptions::ParamTypes paramType{};  // flags
+    quint16 group = 0;      // mutual exclusion group
 };
 
 class QxtCommandOptionsPrivate : public QxtPrivate<QxtCommandOptions>
@@ -213,12 +215,12 @@ class QxtCommandOptionsPrivate : public QxtPrivate<QxtCommandOptions>
     Q_DECLARE_TR_FUNCTIONS(QxtCommandOptions)
 public:
     QXT_DECLARE_PUBLIC(QxtCommandOptions)
+    // lookup and groups keep pointers to the elements, a deque never moves them when it grows
+    std::deque<QxtCommandOption> options;
 #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
-    QVector<QxtCommandOption> options;
     QHash<QString, QxtCommandOption*> lookup;       // cache structure to simplify processing
     QHash<int, QVector<QxtCommandOption*> > groups;  // cache structure to simplify processing
 #else
-    QList<QxtCommandOption> options;
     QHash<QString, QxtCommandOption*> lookup;      // cache structure to simplify processing
     QHash<int, QList<QxtCommandOption*> > groups;  // cache structure to simplify processing
 #endif
@@ -241,7 +243,7 @@ QxtCommandOption* QxtCommandOptionsPrivate::findOption(const QString& name)
 {
     // The backwards loop will find what we're looking for more quickly in the
     // typical use case, where you add aliases immediately after adding the option.
-    for (int i = options.count() - 1; i >= 0; --i)
+    for (int i = int(options.size()) - 1; i >= 0; --i)
     {
         if (options[i].canonicalName == name) return &options[i];
     }
@@ -255,7 +257,7 @@ const QxtCommandOption* QxtCommandOptionsPrivate::findOption(const QString& name
 {
     // The backwards loop will find what we're looking for more quickly in the
     // typical use case, where you add aliases immediately after adding the option.
-    for (int i = options.count() - 1; i >= 0; --i)
+    for (int i = int(options.size()) - 1; i >= 0; --i)
     {
         if (options[i].canonicalName == name) return &(options.at(i));
     }
@@ -352,7 +354,7 @@ void QxtCommandOptions::addSection(const QString& name)
     QxtCommandOption option;
     option.canonicalName.clear();
     option.desc = name;
-    qxt_d().options.append(option);
+    qxt_d().options.push_back(option);
 }
 
 /*!
@@ -373,9 +375,9 @@ void QxtCommandOptions::add(const QString& name, const QString& desc, ParamTypes
     option.desc = desc;
     option.paramType = paramType;
     option.group = group;
-    qxt_d().options.append(option);
+    qxt_d().options.push_back(option);
     if (group != -1)
-        qxt_d().groups[group].append(&(qxt_d().options.last()));
+        qxt_d().groups[group].append(&(qxt_d().options.back()));
     // Connect the canonical name to a usable name
     alias(name, name);
 }
@@ -471,7 +473,7 @@ QMultiHash<QString, QVariant> QxtCommandOptions::parameters() const
         qWarning() << qPrintable(QString("QxtCommandOptions: ") + tr("parameters() called before parse()"));
     QMultiHash<QString, QVariant> params;
     int ct;
-    foreach(const QxtCommandOption& option, qxt_d().options)
+    for (const QxtCommandOption& option : qxt_d().options)
     {
         ct = option.values.count();
         if (!ct)
@@ -824,7 +826,7 @@ void QxtCommandOptions::showUsage(bool showQtOptions, QTextStream& stream) const
     int maxNameLength = 0;
     QString name;
 
-    foreach(const QxtCommandOption& option, qxt_d().options)
+    for (const QxtCommandOption& option : qxt_d().options)
     {
         // Don't generate usage for undocumented parameters
         if (option.paramType & Undocumented) continue;
